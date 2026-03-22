@@ -1,0 +1,14 @@
+column_name,meaning,how_to_read
+accuracy / test_accuracy / cv_accuracy_mean,Tỷ lệ mẫu được dự đoán đúng trên toàn bộ tập đánh giá.,Càng cao càng tốt; nhưng nếu dữ liệu lệch lớp thì không nên dùng accuracy một mình.
+precision / test_precision / cv_precision_mean,"Trong các mẫu bị dự đoán là positive (mặc định class 1), có bao nhiêu mẫu đúng thật.",Quan trọng khi muốn giảm false positive.
+recall / test_recall / cv_recall_mean,"Trong các mẫu positive thật, model bắt được bao nhiêu mẫu.",Quan trọng khi muốn giảm false negative.
+f1_score / test_f1_score / cv_f1_score_mean,Trung bình điều hòa giữa precision và recall.,Hữu ích khi cần cân bằng giữa precision và recall.
+auc / test_auc / cv_auc_mean,ROC-AUC: khả năng tách 2 lớp trên nhiều ngưỡng quyết định.,Gần 1.0 là tốt; 0.5 là gần như ngẫu nhiên.
+cv_*_std,Độ lệch chuẩn của metric qua các folds.,Càng nhỏ càng ổn định giữa các folds.
+search_method,Phương pháp tối ưu siêu tham số thực sự đã dùng.,Giá trị có thể là grid hoặc randomized.
+search_best_score,Điểm CV tốt nhất theo metric scoring dùng cho search.,Trong file này mặc định tối ưu theo F1-score.
+search_best_params,Bộ siêu tham số tốt nhất tìm được bởi GridSearchCV hoặc RandomizedSearchCV.,Dùng để báo cáo và tái lập kết quả.
+elapsed_seconds,Thời gian train + evaluate hoặc search + refit.,Dùng để so sánh chi phí tính toán giữa các model.
+top_k_pixels,Số pixel quan trọng nhất được giữ lại sau feature selection.,Ví dụ 500 nghĩa là chỉ giữ 500 pixel quan trọng nhất.
+reduced_feature_ratio,Tỷ lệ feature sau rút gọn so với toàn bộ pixel ban đầu.,Ví dụ 0.10 nghĩa là chỉ giữ lại 10% feature.
+prob_class_1,Xác suất/score dự đoán cho class 1.,Nếu LABEL_NAME_MAP mặc định thì class 1 = malicious.

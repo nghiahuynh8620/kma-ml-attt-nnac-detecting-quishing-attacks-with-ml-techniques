@@ -1,0 +1,5 @@
+sample_type,sample_index,payload,expected_label_name,predicted_label_value,predicted_label_name,prob_class_1,matches_expected_simulation,saved_qr_image_path
+benign,0,https://example.com/news/academic-2026,benign,1,malicious,0.807685052537971,False,outputs\generated_qr\benign_sample_00.png
+benign,1,WIFI:T:WPA;S:CampusGuest;P:Safe12345;;,benign,0,benign,0.4231560169844252,True,outputs\generated_qr\benign_sample_01.png
+malicious,0,http://198.51.100.24/verify?id=8842,malicious,1,malicious,0.6549640722330949,True,outputs\generated_qr\malicious_sample_00.png
+malicious,1,https://login.example.invalid/update?t=reset,malicious,1,malicious,0.6417380044011688,True,outputs\generated_qr\malicious_sample_01.png

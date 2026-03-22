@@ -1,0 +1,2 @@
+n_samples,n_features,image_height,image_width,positive_ratio,negative_ratio,pixel_min,pixel_max,pixel_mean,pixel_std
+9987,4761,69,69,0.49884850305397016,0.5011514969460298,0.0,1.0,0.4936053290197231,0.4999591065107758

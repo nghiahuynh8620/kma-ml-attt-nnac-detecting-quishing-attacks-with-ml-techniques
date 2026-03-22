@@ -1,0 +1,20 @@
+item,value
+Python,3.11.9
+scikit-learn,1.4.2
+xgboost,3.2.0
+lightgbm,4.6.0
+numpy,2.0.2
+pandas,2.2.2
+CPU,"AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD"
+CPU logical cores,16
+RAM (GB),63.69
+QR version,13
+QR image size,69x69
+QR error correction,LOW
+QR border,0
+Train shape,"(7989, 4761)"
+Test shape,"(1998, 4761)"
+Training time - no_cv (seconds),52.3319
+Training time - cv (seconds),2898.9681
+Training time - grid_search (seconds),60043.5341
+Training time - randomized_search (seconds),7376.4617
