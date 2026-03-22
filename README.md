@@ -401,12 +401,3 @@ Repository này phục vụ cho mục đích:
 
 Không sử dụng cho mục đích tấn công hoặc phát tán nội dung độc hại.
 
-```
-
-Mình cũng có thể viết tiếp cho bạn một bản **README kiểu đẹp hơn nữa** theo style GitHub, có thêm:
-- badge
-- mục lục tự động
-- ảnh minh họa
-- phần “Quick Start”
-- phần “Experimental Environment” đúng kiểu repo học thuật.
-```
