@@ -167,7 +167,7 @@ def find_school_logo() -> Path | None:
         Path("assets/logo_truong.png"),
         Path("assets/logo_truong.jpg"),
         Path("assets/logo_school.png"),
-        Path("assets/logo_kma.png"),
+        Path("assets/KMA_logo.png"),
         Path("assets/logo_uit.png"),
         Path("logo_truong.png"),
         Path("logo_truong.jpg"),
