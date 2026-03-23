@@ -534,6 +534,129 @@ def try_read_csv(path: Path):
     except Exception:
         return None
 
+def render_prediction_metrics(result: dict, load_elapsed_s: float, perf_stats: dict, key_prefix: str = ""):
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
+    m2.metric("QR gen/prep (ms)", f"{result['timing_ms']['qr_generation_ms']}")
+    m3.metric("Decode (ms)", f"{result['timing_ms'].get('decode_ms', 0.0)}")
+    m4.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
+    m5, m6, m7 = st.columns(3)
+    m5.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
+    m6.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
+    m7.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
+    st.caption(f"CPU (%): {'-' if perf_stats['cpu_percent'] is None else perf_stats['cpu_percent']}")
+
+
+def build_comparison_rows(image_result: dict, payload_result: dict):
+    return [
+        {
+            "Tiêu chí": "Nhãn dự đoán",
+            "Từ ảnh upload": image_result.get("predicted_label_name"),
+            "Từ payload giải mã": payload_result.get("predicted_label_name"),
+        },
+        {
+            "Tiêu chí": "Score lớp 1",
+            "Từ ảnh upload": image_result.get("prob_class_1"),
+            "Từ payload giải mã": payload_result.get("prob_class_1"),
+        },
+        {
+            "Tiêu chí": "Decode time (ms)",
+            "Từ ảnh upload": image_result.get("timing_ms", {}).get("decode_ms", 0.0),
+            "Từ payload giải mã": payload_result.get("timing_ms", {}).get("decode_ms", 0.0),
+        },
+        {
+            "Tiêu chí": "QR gen/prep (ms)",
+            "Từ ảnh upload": image_result.get("timing_ms", {}).get("qr_generation_ms", 0.0),
+            "Từ payload giải mã": payload_result.get("timing_ms", {}).get("qr_generation_ms", 0.0),
+        },
+        {
+            "Tiêu chí": "Inference (ms)",
+            "Từ ảnh upload": image_result.get("timing_ms", {}).get("inference_ms", 0.0),
+            "Từ payload giải mã": payload_result.get("timing_ms", {}).get("inference_ms", 0.0),
+        },
+        {
+            "Tiêu chí": "End-to-end (ms)",
+            "Từ ảnh upload": image_result.get("timing_ms", {}).get("end_to_end_ms", 0.0),
+            "Từ payload giải mã": payload_result.get("timing_ms", {}).get("end_to_end_ms", 0.0),
+        },
+    ]
+
+
+def render_upload_vs_payload_comparison(model, model_path: str, uploaded_image: Image.Image, decoded_payload: str, load_elapsed_s: float):
+    rerender_img, _, payload_result = run_single_prediction(
+        model=model,
+        text=decoded_payload,
+        qr_source="decoded_payload_from_upload",
+        model_path=model_path,
+        uploaded_image=None,
+    )
+
+    image_img, _, image_result = run_single_prediction(
+        model=model,
+        text=None,
+        qr_source="uploaded_image",
+        model_path=model_path,
+        uploaded_image=uploaded_image,
+    )
+
+    perf_stats = get_process_stats()
+    label_match = image_result.get("predicted_label") == payload_result.get("predicted_label")
+    score_gap = abs(float(image_result.get("prob_class_1", 0.0)) - float(payload_result.get("prob_class_1", 0.0)))
+
+    st.markdown("### So sánh 2 chế độ: ảnh upload vs payload giải mã")
+    if label_match:
+        st.success("Hai chế độ cho cùng nhãn dự đoán. Đây là tín hiệu tốt để trình bày độ ổn định của pipeline demo.")
+    else:
+        st.warning("Hai chế độ cho nhãn khác nhau. Đây là điểm đáng nêu trong báo cáo vì ảnh gốc và QR render lại có thể khác nhau do nhiễu, méo hoặc chất lượng ảnh.")
+
+    top1, top2, top3 = st.columns(3)
+    top1.metric("Kết luận", "Trùng khớp" if label_match else "Khác nhau")
+    top2.metric("Nhãn từ ảnh upload", image_result.get("predicted_label_name", "-"))
+    top3.metric("Nhãn từ payload giải mã", payload_result.get("predicted_label_name", "-"))
+    st.caption(f"Độ lệch score lớp 1 giữa hai chế độ: {round(score_gap, 6)}")
+
+    img_col, payload_col = st.columns(2)
+    with img_col:
+        st.markdown(
+            """
+            <div class="section-card">
+                <h4>Nhánh 1 — Dự đoán từ ảnh upload</h4>
+                <div class="mini-muted">App dùng trực tiếp ảnh QR người dùng tải lên, sau đó threshold + resize rồi suy luận.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        preview1, preview2 = st.columns(2)
+        with preview1:
+            st.image(uploaded_image, caption="Ảnh gốc", use_container_width=True)
+        with preview2:
+            st.image(image_img, caption="Ảnh sau chuẩn hóa", use_container_width=True)
+        st.json(image_result)
+        render_prediction_metrics(image_result, load_elapsed_s, perf_stats)
+
+    with payload_col:
+        st.markdown(
+            """
+            <div class="section-card">
+                <h4>Nhánh 2 — Dự đoán từ payload giải mã</h4>
+                <div class="mini-muted">App giải mã nội dung từ ảnh, render lại QR chuẩn rồi mới đưa vào mô hình để so sánh.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.code(decoded_payload)
+        st.image(rerender_img, caption="QR render lại từ payload giải mã", use_container_width=False)
+        st.json(payload_result)
+        render_prediction_metrics(payload_result, load_elapsed_s, perf_stats)
+
+    st.markdown("#### Bảng đối chiếu nhanh")
+    st.table(build_comparison_rows(image_result, payload_result))
+
+    st.info(
+        "Gợi ý viết báo cáo: nếu hai nhánh trùng nhãn, bạn có thể nhấn mạnh độ nhất quán của demo. "
+        "Nếu khác nhãn, bạn có thể giải thích do ảnh upload có nhiễu, lệch phối cảnh, độ mờ hoặc lỗi giải mã làm thay đổi đầu vào của mô hình."
+    )
+
 
 st.set_page_config(page_title="QR Quishing Demo + Performance", layout="wide")
 inject_custom_css()
@@ -766,16 +889,21 @@ with demo_tab:
                     unsafe_allow_html=True,
                 )
                 st.json(result)
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
-                m2.metric("QR gen/prep (ms)", f"{result['timing_ms']['qr_generation_ms']}")
-                m3.metric("Decode (ms)", f"{result['timing_ms'].get('decode_ms', 0.0)}")
-                m4.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
-                m5, m6, m7 = st.columns(3)
-                m5.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
-                m6.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
-                m7.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
-                st.caption(f"CPU (%): {'-' if perf_stats['cpu_percent'] is None else perf_stats['cpu_percent']}")
+                render_prediction_metrics(result, load_elapsed_s, perf_stats)
+
+            if input_mode == "Ảnh upload" and uploaded_image is not None:
+                decoded_payload = result.get("decoded_text")
+                if decoded_payload:
+                    st.markdown("---")
+                    render_upload_vs_payload_comparison(
+                        model=model,
+                        model_path=model_path,
+                        uploaded_image=uploaded_image,
+                        decoded_payload=decoded_payload,
+                        load_elapsed_s=load_elapsed_s,
+                    )
+                else:
+                    st.info("Ảnh upload chưa giải mã được payload nên chưa thể bật phần so sánh 'ảnh upload vs payload giải mã'.")
 
     if run_bench:
         if input_mode == "Ảnh upload" and uploaded_image is None:
