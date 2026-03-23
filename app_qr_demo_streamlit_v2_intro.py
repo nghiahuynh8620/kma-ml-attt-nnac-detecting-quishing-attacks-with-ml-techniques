@@ -172,7 +172,7 @@ def find_school_logo() -> Path | None:
         Path("logo_truong.png"),
         Path("logo_truong.jpg"),
         Path("logo_school.png"),
-        Path("logo_kma.png"),
+        Path("KMA_logo.png"),
         Path("logo_uit.png"),
     ]
     for p in candidates:
