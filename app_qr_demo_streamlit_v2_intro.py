@@ -12,6 +12,12 @@ import numpy as np
 import streamlit as st
 import qrcode
 from PIL import Image
+import cv2
+
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+except Exception:  # pragma: no cover
+    pyzbar_decode = None
 
 try:
     import psutil
@@ -50,7 +56,7 @@ INTRO_MD = """
 Ứng dụng này là **web demo phát hiện QR quishing bằng học máy**. Hệ thống nhận nội dung QR, sinh ảnh QR, tiền xử lý về đúng kích thước đầu vào mô hình và dự đoán nhãn **benign** hoặc **malicious**.
 
 ### Chức năng chính
-- Dự đoán QR từ **Synthetic** hoặc **Text nhập tay**.
+- Dự đoán QR từ **Synthetic**, **Text nhập tay** hoặc **Ảnh QR upload**.
 - Đo **benchmark hiệu năng**: QR generation, preprocessing, inference, end-to-end.
 - Ghi **prediction log** và **benchmark log** để phục vụ báo cáo.
 - Hiển thị thông tin model, metadata và tài nguyên sử dụng.
@@ -306,13 +312,86 @@ def log_perf(stage: str, elapsed_s: float, extra: dict | None = None):
 
 
 
-def run_single_prediction(model, text: str, qr_source: str, model_path: str):
+def decode_qr_text_from_pil(image: Image.Image):
+    decoded_text = None
+    decoder_used = None
+
+    try:
+        rgb = np.array(image.convert("RGB"))
+        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        detector = cv2.QRCodeDetector()
+        text_single, _, _ = detector.detectAndDecode(bgr)
+        if text_single:
+            decoded_text = text_single
+            decoder_used = "opencv.detectAndDecode"
+        else:
+            ok_multi, texts_multi, _, _ = detector.detectAndDecodeMulti(bgr)
+            if ok_multi and texts_multi:
+                for txt in texts_multi:
+                    if txt:
+                        decoded_text = txt
+                        decoder_used = "opencv.detectAndDecodeMulti"
+                        break
+    except Exception:
+        pass
+
+    if (not decoded_text) and pyzbar_decode is not None:
+        try:
+            decoded = pyzbar_decode(image.convert("RGB"))
+            if decoded:
+                decoded_text = decoded[0].data.decode("utf-8", errors="replace")
+                decoder_used = "pyzbar"
+        except Exception:
+            pass
+
+    return decoded_text, decoder_used
+
+
+
+def preprocess_uploaded_qr_image(image: Image.Image, target_shape=(69, 69)):
+    gray = image.convert("L")
+    arr = np.asarray(gray, dtype=np.uint8)
+
+    # Otsu threshold để đưa QR về trắng/đen ổn định hơn
+    try:
+        _, binary = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    except Exception:
+        binary = arr
+
+    pil_binary = Image.fromarray(binary)
+    try:
+        resample = Image.Resampling.LANCZOS
+    except Exception:
+        resample = Image.LANCZOS
+    pil_resized = pil_binary.resize(target_shape[::-1], resample=resample)
+    arr_resized = np.asarray(pil_resized, dtype=np.float32)
+    arr_resized = 1.0 - (arr_resized / 255.0)
+    return pil_resized, arr_resized
+
+
+
+def run_single_prediction(model, text: str | None, qr_source: str, model_path: str, uploaded_image: Image.Image | None = None):
     t_total_0 = time.perf_counter()
 
-    t0 = time.perf_counter()
-    img, arr = render_qr_to_array(text=text, target_shape=TARGET_SHAPE)
-    t1 = time.perf_counter()
-    qr_generation_s = t1 - t0
+    decode_ms = 0.0
+    decoded_text = None
+    decoder_used = None
+
+    if uploaded_image is None:
+        t0 = time.perf_counter()
+        img, arr = render_qr_to_array(text=text or "", target_shape=TARGET_SHAPE)
+        t1 = time.perf_counter()
+        qr_generation_s = t1 - t0
+    else:
+        t0 = time.perf_counter()
+        decoded_text, decoder_used = decode_qr_text_from_pil(uploaded_image)
+        t1 = time.perf_counter()
+        decode_ms = round((t1 - t0) * 1000.0, 3)
+
+        t0 = time.perf_counter()
+        img, arr = preprocess_uploaded_qr_image(image=uploaded_image, target_shape=TARGET_SHAPE)
+        t1 = time.perf_counter()
+        qr_generation_s = t1 - t0
 
     t0 = time.perf_counter()
     X_input = arr.reshape(1, -1)
@@ -333,9 +412,12 @@ def run_single_prediction(model, text: str, qr_source: str, model_path: str):
         "prob_class_1": round(score_1, 6),
         "selected_model": model_path,
         "qr_source": qr_source,
+        "decoded_text": decoded_text,
+        "decoder_used": decoder_used,
         "input_shape": f"{X_input.shape[0]}x{X_input.shape[1]}",
         "timing_ms": {
             "qr_generation_ms": round(qr_generation_s * 1000.0, 3),
+            "decode_ms": decode_ms,
             "preprocess_ms": round(preprocess_s * 1000.0, 3),
             "inference_ms": round(inference_s * 1000.0, 3),
             "end_to_end_ms": round(total_s * 1000.0, 3),
@@ -351,7 +433,10 @@ def run_single_prediction(model, text: str, qr_source: str, model_path: str):
             "predicted_label": pred_label,
             "predicted_label_name": result["predicted_label_name"],
             "prob_class_1": result["prob_class_1"],
+            "decoded_text": decoded_text,
+            "decoder_used": decoder_used,
             "qr_generation_ms": result["timing_ms"]["qr_generation_ms"],
+            "decode_ms": result["timing_ms"]["decode_ms"],
             "preprocess_ms": result["timing_ms"]["preprocess_ms"],
             "inference_ms": result["timing_ms"]["inference_ms"],
             "end_to_end_ms": result["timing_ms"]["end_to_end_ms"],
@@ -379,20 +464,33 @@ def summarize_latency_ms(values):
 
 
 
-def run_benchmark(model, text: str, qr_source: str, model_path: str, n_runs: int = 100):
+def run_benchmark(model, text: str | None, qr_source: str, model_path: str, n_runs: int = 100, uploaded_image: Image.Image | None = None):
     total_ms = []
     infer_ms = []
     prep_ms = []
     gen_ms = []
+    decode_ms = []
     predictions = []
 
     for _ in range(int(n_runs)):
         t_total_0 = time.perf_counter()
 
-        t0 = time.perf_counter()
-        _, arr = render_qr_to_array(text=text, target_shape=TARGET_SHAPE)
-        t1 = time.perf_counter()
-        gen_ms.append((t1 - t0) * 1000.0)
+        if uploaded_image is None:
+            t0 = time.perf_counter()
+            _, arr = render_qr_to_array(text=text or "", target_shape=TARGET_SHAPE)
+            t1 = time.perf_counter()
+            gen_ms.append((t1 - t0) * 1000.0)
+            decode_ms.append(0.0)
+        else:
+            t0 = time.perf_counter()
+            _decoded_text, _decoder_used = decode_qr_text_from_pil(uploaded_image)
+            t1 = time.perf_counter()
+            decode_ms.append((t1 - t0) * 1000.0)
+
+            t0 = time.perf_counter()
+            _, arr = preprocess_uploaded_qr_image(image=uploaded_image, target_shape=TARGET_SHAPE)
+            t1 = time.perf_counter()
+            gen_ms.append((t1 - t0) * 1000.0)
 
         t0 = time.perf_counter()
         X_input = arr.reshape(1, -1)
@@ -418,6 +516,7 @@ def run_benchmark(model, text: str, qr_source: str, model_path: str, n_runs: int
         **{f"infer_{k}": v for k, v in summarize_latency_ms(infer_ms).items()},
         **{f"preprocess_{k}": v for k, v in summarize_latency_ms(prep_ms).items()},
         **{f"generate_{k}": v for k, v in summarize_latency_ms(gen_ms).items()},
+        **{f"decode_{k}": v for k, v in summarize_latency_ms(decode_ms).items()},
     }
     stats = get_process_stats()
     summary.update(stats)
@@ -518,7 +617,7 @@ with intro_tab:
     a, b, c = st.columns(3)
     a.info("""**Đầu vào**
 
-QR synthetic hoặc text nhập tay.""")
+QR synthetic, text nhập tay hoặc ảnh QR upload.""")
     b.success("""**Đầu ra**
 
 Nhãn dự đoán, score lớp 1 và thời gian xử lý.""")
@@ -538,8 +637,10 @@ with demo_tab:
             """,
             unsafe_allow_html=True,
         )
-        input_mode = st.radio("Nguồn QR", ["Synthetic", "Text nhập tay"])
+        input_mode = st.radio("Nguồn QR", ["Synthetic", "Text nhập tay", "Ảnh upload"])
         is_synthetic_mode = input_mode == "Synthetic"
+        is_manual_mode = input_mode == "Text nhập tay"
+        is_upload_mode = input_mode == "Ảnh upload"
 
         qr_type = st.selectbox(
             "Loại QR synthetic",
@@ -560,14 +661,22 @@ with demo_tab:
             "Nội dung QR thủ công",
             value="https://example.com",
             height=140,
-            disabled=is_synthetic_mode,
+            disabled=not is_manual_mode,
             help="Chỉ bật khi chọn nguồn QR là Text nhập tay.",
+        )
+        uploaded_qr = st.file_uploader(
+            "Upload ảnh QR",
+            type=["png", "jpg", "jpeg", "bmp", "webp"],
+            disabled=not is_upload_mode,
+            help="Chỉ bật khi chọn nguồn QR là Ảnh upload.",
         )
 
         if is_synthetic_mode:
-            st.caption("Đang dùng QR synthetic. Phần nhập tay đã được làm mờ.")
+            st.caption("Đang dùng QR synthetic. Phần nhập tay và upload ảnh đã được làm mờ.")
+        elif is_manual_mode:
+            st.caption("Đang dùng nội dung nhập tay. Tùy chọn synthetic và upload ảnh đã được làm mờ.")
         else:
-            st.caption("Đang dùng nội dung nhập tay. Tùy chọn QR synthetic đã được làm mờ.")
+            st.caption("Đang dùng ảnh QR upload. Tùy chọn synthetic và nhập tay đã được làm mờ.")
 
         run_predict = st.button("Predict QR", type="primary", use_container_width=True)
         run_bench = st.button("Benchmark hiệu năng", use_container_width=True)
@@ -591,62 +700,104 @@ with demo_tab:
             }
         )
 
+    uploaded_image = None
     if input_mode == "Synthetic":
         qr_type, text = get_safe_qr_payload(qr_type=qr_type, sample_index=sample_index)
-    else:
+    elif input_mode == "Text nhập tay":
         text = custom_text
         qr_type = "custom"
+    else:
+        text = None
+        qr_type = "uploaded_image"
+        if uploaded_qr is not None:
+            try:
+                uploaded_image = Image.open(uploaded_qr).convert("RGB")
+            except Exception as e:
+                st.error(f"Không thể đọc ảnh upload: {e}")
 
     if run_predict:
-        img, arr, result = run_single_prediction(model=model, text=text, qr_source=qr_type, model_path=model_path)
-        perf_stats = get_process_stats()
+        if input_mode == "Ảnh upload" and uploaded_image is None:
+            st.warning("Bạn cần upload một ảnh QR trước khi dự đoán.")
+        else:
+            img, arr, result = run_single_prediction(
+                model=model,
+                text=text,
+                qr_source=qr_type,
+                model_path=model_path,
+                uploaded_image=uploaded_image,
+            )
+            perf_stats = get_process_stats()
 
-        c1, c2 = st.columns([1, 1.2])
-        with c1:
-            st.markdown(
-                """
-                <div class="section-card">
-                    <h4>QR đã render</h4>
-                    <div class="mini-muted">Ảnh QR sau khi được sinh từ payload đầu vào.</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.image(img, caption=f"QR rendered | source={qr_type}", use_container_width=False)
-            st.write("**Payload**")
-            st.code(text)
-        with c2:
-            st.markdown(
-                """
-                <div class="section-card">
-                    <h4>Kết quả dự đoán</h4>
-                    <div class="mini-muted">Nhãn dự đoán, score và các chỉ số hiệu năng cho một lượt chạy.</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.json(result)
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
-            m2.metric("QR gen (ms)", f"{result['timing_ms']['qr_generation_ms']}")
-            m3.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
-            m4.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
-            m5, m6, m7 = st.columns(3)
-            m5.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
-            m6.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
-            m7.metric("CPU (%)", "-" if perf_stats["cpu_percent"] is None else str(perf_stats["cpu_percent"]))
+            c1, c2 = st.columns([1, 1.2])
+            with c1:
+                st.markdown(
+                    """
+                    <div class="section-card">
+                        <h4>Ảnh QR dùng để dự đoán</h4>
+                        <div class="mini-muted">Ảnh đã được render từ payload hoặc được chuẩn hóa từ file upload.</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if input_mode == "Ảnh upload" and uploaded_image is not None:
+                    preview1, preview2 = st.columns(2)
+                    with preview1:
+                        st.image(uploaded_image, caption="Ảnh upload gốc", use_container_width=True)
+                    with preview2:
+                        st.image(img, caption=f"Ảnh chuẩn hóa | source={qr_type}", use_container_width=True)
+                    decoded_payload = result.get("decoded_text")
+                    if decoded_payload:
+                        st.write("**Payload giải mã từ ảnh**")
+                        st.code(decoded_payload)
+                    else:
+                        st.info("Chưa giải mã được payload từ ảnh upload, nhưng app vẫn thử dự đoán trực tiếp trên ảnh QR.")
+                else:
+                    st.image(img, caption=f"QR rendered | source={qr_type}", use_container_width=False)
+                    st.write("**Payload**")
+                    st.code(text)
+            with c2:
+                st.markdown(
+                    """
+                    <div class="section-card">
+                        <h4>Kết quả dự đoán</h4>
+                        <div class="mini-muted">Nhãn dự đoán, score và các chỉ số hiệu năng cho một lượt chạy.</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.json(result)
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
+                m2.metric("QR gen/prep (ms)", f"{result['timing_ms']['qr_generation_ms']}")
+                m3.metric("Decode (ms)", f"{result['timing_ms'].get('decode_ms', 0.0)}")
+                m4.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
+                m5, m6, m7 = st.columns(3)
+                m5.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
+                m6.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
+                m7.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
+                st.caption(f"CPU (%): {'-' if perf_stats['cpu_percent'] is None else perf_stats['cpu_percent']}")
 
     if run_bench:
-        with st.spinner("Đang benchmark..."):
-            summary = run_benchmark(model=model, text=text, qr_source=qr_type, model_path=model_path, n_runs=benchmark_runs)
-        st.subheader("Benchmark summary")
-        st.json(summary)
-        b1, b2, b3, b4 = st.columns(4)
-        b1.metric("Mean total (ms)", f"{summary.get('total_mean_ms', '-')}")
-        b2.metric("P95 total (ms)", f"{summary.get('total_p95_ms', '-')}")
-        b3.metric("P99 total (ms)", f"{summary.get('total_p99_ms', '-')}")
-        b4.metric("Max total (ms)", f"{summary.get('total_max_ms', '-')}")
-        st.caption("Khi báo cáo hiệu năng, nên ưu tiên mean, std, p95, p99 và max latency.")
+        if input_mode == "Ảnh upload" and uploaded_image is None:
+            st.warning("Bạn cần upload một ảnh QR trước khi benchmark.")
+        else:
+            with st.spinner("Đang benchmark..."):
+                summary = run_benchmark(
+                    model=model,
+                    text=text,
+                    qr_source=qr_type,
+                    model_path=model_path,
+                    n_runs=benchmark_runs,
+                    uploaded_image=uploaded_image,
+                )
+            st.subheader("Benchmark summary")
+            st.json(summary)
+            b1, b2, b3, b4 = st.columns(4)
+            b1.metric("Mean total (ms)", f"{summary.get('total_mean_ms', '-')}")
+            b2.metric("P95 total (ms)", f"{summary.get('total_p95_ms', '-')}")
+            b3.metric("P99 total (ms)", f"{summary.get('total_p99_ms', '-')}")
+            b4.metric("Max total (ms)", f"{summary.get('total_max_ms', '-')}")
+            st.caption("Khi báo cáo hiệu năng, nên ưu tiên mean, std, p95, p99 và max latency.")
 
 with logs_tab:
     if show_logs:
