@@ -43,6 +43,14 @@ INTRO_MD = """
 ## Giới thiệu dự án
 Ứng dụng này là **web demo phát hiện QR quishing bằng học máy**. Mục tiêu chính là minh họa cách mô hình đã train có thể nhận đầu vào từ QR code và đưa ra dự đoán **benign** hoặc **malicious**.
 
+### Nhóm thực hiện
+- **Vũ Thị Diệu Anh** — CHAT4P001
+- **Diệp Kim Chi** — CHAT4P003
+- **Huỳnh Trọng Nghĩa** — CHAT4P011
+- **Võ Minh Nhật** — CHAT4P013
+
+**Giảng viên hướng dẫn:** TS. Nguyễn An Khương
+
 ### Chức năng chính
 - **Dự đoán QR** từ 2 nguồn:
   - **Synthetic**: dùng các payload an toàn được tạo sẵn để demo.
