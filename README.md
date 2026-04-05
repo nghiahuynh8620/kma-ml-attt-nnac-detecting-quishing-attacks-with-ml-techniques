@@ -86,8 +86,6 @@ Retrain models
     ↓
 Demo prediction
 
-Đúng rồi nè — mình viết lại theo kiểu **README chuẩn GitHub Markdown**, gọn, dễ nhìn, dán thẳng vào `README.md` được:
-
 ````markdown
 # Quishing Detection using Machine Learning
 
