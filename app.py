@@ -19,12 +19,6 @@ except Exception:
     psutil = None
 
 
-# =========================================================
-# CONFIG THEO NOTEBOOK MỚI
-# - Output dir: outputs_quishing_paper_10fold
-# - QR chuẩn paper: version=13, 69x69, EC=L, border=0, box_size=1
-# - Hỗ trợ cả model full-features và feature_selection
-# =========================================================
 LABEL_NAME_MAP = {0: "benign", 1: "malicious"}
 
 SAFE_BENIGN_QR_PAYLOADS = [
@@ -56,7 +50,6 @@ def resolve_output_dir() -> Path:
     for p in OUTPUT_DIR_CANDIDATES:
         if (p / "models_new").exists():
             return p
-    # fallback mặc định theo notebook mới
     return Path("./outputs_quishing_paper_10fold")
 
 
@@ -66,6 +59,156 @@ DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 PERF_LOG_FILE = DEFAULT_LOG_DIR / "webapp_perf_log.csv"
 BENCHMARK_LOG_FILE = DEFAULT_LOG_DIR / "webapp_benchmark_log.csv"
+
+
+def inject_css():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background:
+                radial-gradient(circle at top left, rgba(59,130,246,0.12), transparent 28%),
+                radial-gradient(circle at top right, rgba(16,185,129,0.10), transparent 24%),
+                linear-gradient(180deg, #0b1220 0%, #111827 35%, #0f172a 100%);
+            color: #e5eefc;
+        }
+        .block-container {
+            padding-top: 1.4rem;
+            padding-bottom: 1.5rem;
+            max-width: 1280px;
+        }
+        h1, h2, h3, h4 {
+            color: #f8fbff !important;
+            letter-spacing: 0.2px;
+        }
+        .hero {
+            background: linear-gradient(135deg, rgba(37,99,235,0.24), rgba(16,185,129,0.18));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 1.25rem 1.35rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+            margin-bottom: 1rem;
+        }
+        .hero-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+        .hero-subtitle {
+            color: #dbeafe;
+            font-size: 1rem;
+            line-height: 1.55;
+            margin-bottom: 0.75rem;
+        }
+        .badge-row {
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+        .badge {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.10);
+            color: #f8fafc;
+            border-radius: 999px;
+            padding: 0.28rem 0.72rem;
+            font-size: 0.84rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
+            padding: 1rem 1rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            margin-bottom: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+        .card-title {
+            font-weight: 700;
+            font-size: 1.03rem;
+            margin-bottom: 0.55rem;
+            color: #f8fbff;
+        }
+        .soft-text {
+            color: #d1d9e6;
+            line-height: 1.6;
+        }
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.7rem;
+        }
+        .mini-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 0.7rem 0.8rem;
+        }
+        .mini-label {
+            font-size: 0.8rem;
+            color: #bfdbfe;
+            margin-bottom: 0.15rem;
+        }
+        .mini-value {
+            font-size: 0.95rem;
+            color: #ffffff;
+            font-weight: 650;
+            word-break: break-word;
+        }
+        .status-good {
+            color: #86efac;
+            font-weight: 700;
+        }
+        .status-warn {
+            color: #fde68a;
+            font-weight: 700;
+        }
+        div[data-testid="stMetric"] {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.07);
+            padding: 0.75rem 0.9rem;
+            border-radius: 18px;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #cbd5e1;
+        }
+        div[data-testid="stSidebar"] {
+            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98));
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.4rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px 14px 0 0;
+            color: #dbeafe;
+            padding: 0.55rem 0.95rem;
+        }
+        .stTabs [aria-selected="true"] {
+            background: rgba(37,99,235,0.20) !important;
+            color: #ffffff !important;
+        }
+        code {
+            white-space: pre-wrap !important;
+            word-break: break-word;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def card(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="card">
+            <div class="card-title">{title}</div>
+            <div class="soft-text">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def get_safe_qr_payload(qr_type: str = "benign", sample_index: int = 0):
@@ -81,14 +224,6 @@ def get_safe_qr_payload(qr_type: str = "benign", sample_index: int = 0):
 
 
 def render_qr_to_array_paper(text: str):
-    """
-    Tạo QR đúng chuẩn paper/notebook mới:
-    - version = 13
-    - error correction = low
-    - box_size = 1
-    - border = 0
-    - shape kỳ vọng = 69x69
-    """
     qr = qrcode.QRCode(
         version=QR_VERSION,
         error_correction=QR_ERROR_CORRECTION,
@@ -99,9 +234,7 @@ def render_qr_to_array_paper(text: str):
     try:
         qr.make(fit=False)
     except Exception as e:
-        raise ValueError(
-            "Nội dung quá dài hoặc không phù hợp để mã hóa với QR version 13 theo cấu hình paper."
-        ) from e
+        raise ValueError("Nội dung quá dài hoặc không phù hợp để mã hóa với QR version 13 theo cấu hình paper.") from e
 
     img = qr.make_image(fill_color="black", back_color="white").convert("L")
     arr = np.asarray(img, dtype=np.uint8)
@@ -185,7 +318,6 @@ def resolve_results_dir_from_model_path(model_path: str) -> Path:
     for parent in [p] + list(p.parents):
         if parent.name == "models_new":
             return parent.parent / "results"
-    # fallback
     return DEFAULT_OUTPUT_DIR / "results"
 
 
@@ -196,14 +328,12 @@ def resolve_selected_idx_path(model_path: str, metadata: dict) -> Path | None:
         return None
     if not selector_name:
         return None
-
     results_dir = resolve_results_dir_from_model_path(model_path)
     idx_path = results_dir / f"selected_idx_{selector_name}.npy"
     return idx_path if idx_path.exists() else None
 
 
 def build_input_vector(arr: np.ndarray, selected_idx: np.ndarray | None = None):
-    # theo notebook mới: dùng trực tiếp pixel QR, không resize mềm, không invert, không scale 0..1
     X_input = arr.astype(np.float32).reshape(1, -1)
     original_dim = X_input.shape[1]
     if selected_idx is not None:
@@ -244,13 +374,6 @@ def run_single_prediction(model, text: str, qr_source: str, model_path: str, sel
         "model_stage": metadata.get("stage"),
         "selector_name": metadata.get("selector_name"),
         "top_k": metadata.get("top_k"),
-        "qr_standard": {
-            "version": QR_VERSION,
-            "shape": TARGET_SHAPE,
-            "error_correction": "L",
-            "border": QR_BORDER,
-            "box_size": QR_BOX_SIZE,
-        },
         "timing_ms": {
             "qr_generation_ms": round(qr_generation_s * 1000.0, 3),
             "preprocess_ms": round(preprocess_s * 1000.0, 3),
@@ -347,23 +470,39 @@ def run_benchmark(model, text: str, qr_source: str, model_path: str, selected_id
     return summary
 
 
-# =============================
-# STREAMLIT UI
-# =============================
-st.set_page_config(page_title="QR Quishing Demo - Paper 10 Fold", layout="wide")
-st.title("QR Quishing Demo - Paper 10 Fold")
-st.caption("App đã sửa để khớp notebook train mới: output dir mới, QR chuẩn paper, và hỗ trợ model feature selection.")
+st.set_page_config(page_title="QR Quishing Demo - Paper UI", layout="wide")
+inject_css()
 
 model_files = sorted(DEFAULT_OUTPUT_DIR.glob("models_new/**/*.joblib"))
+model_count = len(model_files)
+
+st.markdown(
+    f"""
+    <div class="hero">
+        <div class="hero-title">QR Quishing Demo</div>
+        <div class="hero-subtitle">
+            Giao diện đẹp theo kiểu dashboard của app cũ, nhưng phần xử lý đã khớp notebook train mới.
+            App tự hỗ trợ model baseline lẫn feature selection.
+        </div>
+        <div class="badge-row">
+            <span class="badge">QR version 13</span>
+            <span class="badge">69×69</span>
+            <span class="badge">10-fold paper setup</span>
+            <span class="badge">{model_count} model files</span>
+            <span class="badge">Feature selection supported</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 if not model_files:
-    st.warning(
-        f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models_new'}.\n"
-        "Hãy chạy notebook train mới trước."
-    )
+    st.warning(f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models_new'}. Hãy chạy notebook train mới trước.")
     st.stop()
 
 with st.sidebar:
-    st.header("Cấu hình")
+    st.header("Cấu hình hệ thống")
+    st.caption("Đã đồng bộ với notebook paper-only 10-fold.")
     st.write({"output_dir": str(DEFAULT_OUTPUT_DIR.resolve())})
     use_cache = st.checkbox("Dùng cache khi load model", value=True)
     benchmark_runs = st.slider("Số lần benchmark", min_value=10, max_value=500, value=100, step=10)
@@ -372,14 +511,11 @@ with st.sidebar:
 model_path = st.selectbox("Chọn model đã train", options=[str(p) for p in model_files])
 
 load_t0 = time.perf_counter()
-if use_cache:
-    bundle = load_model_bundle_cached(model_path)
-else:
-    bundle = load_model_bundle_uncached(model_path)
+bundle = load_model_bundle_cached(model_path) if use_cache else load_model_bundle_uncached(model_path)
 load_elapsed_s = time.perf_counter() - load_t0
+
 model = bundle["model"]
 metadata = bundle.get("metadata", {}) or {}
-
 selected_idx_path = resolve_selected_idx_path(model_path=model_path, metadata=metadata)
 selected_idx = load_selected_idx(str(selected_idx_path)) if selected_idx_path is not None else None
 
@@ -396,54 +532,63 @@ log_perf(
     },
 )
 
-col_cfg, col_out = st.columns([1, 1.25])
+top_col_1, top_col_2 = st.columns([1.15, 1])
 
-with col_cfg:
-    input_mode = st.radio("Nguồn QR", ["Synthetic", "Text nhập tay"])
+with top_col_1:
+    st.markdown('<div class="card-title">Thiết lập đầu vào</div>', unsafe_allow_html=True)
+    input_mode = st.radio("Nguồn QR", ["Synthetic", "Text nhập tay"], horizontal=True)
     is_synthetic_mode = input_mode == "Synthetic"
 
-    qr_type = st.selectbox(
-        "Loại QR synthetic",
-        ["benign", "malicious"],
-        disabled=not is_synthetic_mode,
-    )
-    sample_index = st.number_input(
-        "Sample index",
-        min_value=0,
-        max_value=20,
-        value=0,
-        step=1,
-        disabled=not is_synthetic_mode,
-    )
+    c1, c2 = st.columns(2)
+    with c1:
+        qr_type = st.selectbox("Loại QR synthetic", ["benign", "malicious"], disabled=not is_synthetic_mode)
+    with c2:
+        sample_index = st.number_input("Sample index", min_value=0, max_value=20, value=0, step=1, disabled=not is_synthetic_mode)
+
     custom_text = st.text_area(
         "Nội dung QR thủ công",
         value="https://example.com",
         disabled=is_synthetic_mode,
-        help="Lưu ý: app sẽ cố tạo QR theo version 13 cố định, nên nội dung quá dài có thể bị báo lỗi.",
+        help="App sẽ tạo QR theo đúng version 13 cố định, nên nội dung quá dài có thể không encode được.",
+        height=120,
     )
 
-    if is_synthetic_mode:
-        st.caption("Đang dùng QR synthetic. Phần nhập tay đã được làm mờ.")
-    else:
-        st.caption("Đang dùng nội dung nhập tay. Tùy chọn QR synthetic đã được làm mờ.")
+    st.info("Đang dùng QR synthetic." if is_synthetic_mode else "Đang dùng nội dung nhập tay.")
 
-    run_predict = st.button("Predict QR", type="primary", use_container_width=True)
-    run_bench = st.button("Benchmark hiệu năng", use_container_width=True)
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        run_predict = st.button("Predict QR", type="primary", use_container_width=True)
+    with btn_col2:
+        run_bench = st.button("Benchmark hiệu năng", use_container_width=True)
 
-with col_out:
-    st.subheader("Model info")
-    model_info = {
+with top_col_2:
+    stage_text = str(metadata.get("stage", "unknown"))
+    status = '<span class="status-good">Feature Selection</span>' if stage_text == "feature_selection" else (
+        '<span class="status-good">CV10 Baseline</span>' if stage_text == "cv10_baseline" else f'<span class="status-warn">{stage_text}</span>'
+    )
+
+    st.markdown(
+        f"""
+        <div class="card">
+            <div class="card-title">Thông tin model</div>
+            <div class="mini-grid">
+                <div class="mini-item"><div class="mini-label">Stage</div><div class="mini-value">{status}</div></div>
+                <div class="mini-item"><div class="mini-label">Model</div><div class="mini-value">{metadata.get("model_name", "-")}</div></div>
+                <div class="mini-item"><div class="mini-label">Fold</div><div class="mini-value">{metadata.get("fold", "-")}</div></div>
+                <div class="mini-item"><div class="mini-label">Load model</div><div class="mini-value">{round(load_elapsed_s * 1000.0, 3)} ms</div></div>
+                <div class="mini-item"><div class="mini-label">Selector</div><div class="mini-value">{metadata.get("selector_name", "-")}</div></div>
+                <div class="mini-item"><div class="mini-label">Top-k</div><div class="mini-value">{metadata.get("top_k", "-")}</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.json({
         "selected_model": model_path,
-        "stage": metadata.get("stage"),
-        "model_name": metadata.get("model_name"),
-        "fold": metadata.get("fold"),
-        "selector_name": metadata.get("selector_name"),
-        "top_k": metadata.get("top_k"),
         "selected_idx_path": str(selected_idx_path) if selected_idx_path else None,
-        "model_load_ms": round(load_elapsed_s * 1000.0, 3),
         "cache_enabled": use_cache,
-    }
-    st.json(model_info)
+        "output_dir": str(DEFAULT_OUTPUT_DIR),
+    })
 
 if input_mode == "Synthetic":
     qr_type, text = get_safe_qr_payload(qr_type=qr_type, sample_index=sample_index)
@@ -451,89 +596,103 @@ else:
     text = custom_text
     qr_type = "custom"
 
-if run_predict:
-    try:
-        img, arr, result = run_single_prediction(
-            model=model,
-            text=text,
-            qr_source=qr_type,
-            model_path=model_path,
-            selected_idx=selected_idx,
-            metadata=metadata,
-        )
-        perf_stats = get_process_stats()
+tab_predict, tab_bench, tab_logs, tab_guide = st.tabs(["Dự đoán", "Benchmark", "Log hệ thống", "Hướng dẫn"])
 
-        c1, c2 = st.columns([1, 1.2])
-        with c1:
-            st.image(img, caption=f"QR rendered | source={qr_type}", use_container_width=False)
-            st.write("**Payload**")
-            st.code(text)
-            st.write("**QR matrix summary**")
-            st.write({
-                "shape": arr.shape,
-                "pixel_min": int(arr.min()),
-                "pixel_max": int(arr.max()),
-                "pixel_mean": round(float(arr.mean()), 4),
-            })
-        with c2:
-            st.write("**Prediction**")
-            st.json(result)
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
-            m2.metric("QR gen (ms)", f"{result['timing_ms']['qr_generation_ms']}")
-            m3.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
-            m4.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
-            m5, m6, m7 = st.columns(3)
-            m5.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
-            m6.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
-            m7.metric("CPU (%)", "-" if perf_stats["cpu_percent"] is None else str(perf_stats["cpu_percent"]))
-    except Exception as e:
-        st.error(str(e))
-
-if run_bench:
-    try:
-        with st.spinner("Đang benchmark..."):
-            summary = run_benchmark(
+with tab_predict:
+    card("Mô tả", "Tab này sinh QR đúng chuẩn paper rồi đưa vào model đã train. Nếu model thuộc nhánh feature selection, app sẽ tự nạp selected_idx để cắt feature trước khi dự đoán.")
+    if run_predict:
+        try:
+            img, arr, result = run_single_prediction(
                 model=model,
                 text=text,
                 qr_source=qr_type,
                 model_path=model_path,
                 selected_idx=selected_idx,
                 metadata=metadata,
-                n_runs=benchmark_runs,
             )
-        st.subheader("Benchmark summary")
-        st.json(summary)
-        b1, b2, b3, b4 = st.columns(4)
-        b1.metric("Mean total (ms)", f"{summary.get('total_mean_ms', '-')}")
-        b2.metric("P95 total (ms)", f"{summary.get('total_p95_ms', '-')}")
-        b3.metric("P99 total (ms)", f"{summary.get('total_p99_ms', '-')}")
-        b4.metric("Max total (ms)", f"{summary.get('total_max_ms', '-')}")
-    except Exception as e:
-        st.error(str(e))
+            perf_stats = get_process_stats()
 
-if show_logs:
-    st.subheader("Log hiệu năng gần nhất")
-    perf_df = try_read_csv(PERF_LOG_FILE)
-    bench_df = try_read_csv(BENCHMARK_LOG_FILE)
-    tab1, tab2 = st.tabs(["Prediction log", "Benchmark log"])
-    with tab1:
-        if perf_df is not None and not perf_df.empty:
-            st.dataframe(perf_df.tail(20), use_container_width=True)
-        else:
-            st.info("Chưa có prediction log.")
-    with tab2:
-        if bench_df is not None and not bench_df.empty:
-            st.dataframe(bench_df.tail(20), use_container_width=True)
-        else:
-            st.info("Chưa có benchmark log.")
+            c1, c2 = st.columns([1, 1.2])
+            with c1:
+                st.markdown('<div class="card-title">QR preview</div>', unsafe_allow_html=True)
+                st.image(img, caption=f"QR rendered | source={qr_type}", use_container_width=False)
+                st.write("**Payload**")
+                st.code(text)
+                st.write("**QR matrix summary**")
+                st.write({"shape": arr.shape, "pixel_min": int(arr.min()), "pixel_max": int(arr.max()), "pixel_mean": round(float(arr.mean()), 4)})
+            with c2:
+                st.markdown('<div class="card-title">Kết quả dự đoán</div>', unsafe_allow_html=True)
+                st.json(result)
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
+                m2.metric("QR gen (ms)", f"{result['timing_ms']['qr_generation_ms']}")
+                m3.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
+                m4.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
+                m5, m6, m7 = st.columns(3)
+                m5.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
+                m6.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
+                m7.metric("CPU (%)", "-" if perf_stats["cpu_percent"] is None else str(perf_stats["cpu_percent"]))
+        except Exception as e:
+            st.error(str(e))
+    else:
+        st.info("Chọn nguồn QR và bấm Predict QR để xem kết quả.")
+
+with tab_bench:
+    card("Benchmark hiệu năng", "Đo generate QR, preprocess, inference và end-to-end latency. Khi báo cáo, nên theo dõi mean, p95, p99.")
+    if run_bench:
+        try:
+            with st.spinner("Đang benchmark..."):
+                summary = run_benchmark(
+                    model=model,
+                    text=text,
+                    qr_source=qr_type,
+                    model_path=model_path,
+                    selected_idx=selected_idx,
+                    metadata=metadata,
+                    n_runs=benchmark_runs,
+                )
+            st.json(summary)
+            b1, b2, b3, b4 = st.columns(4)
+            b1.metric("Mean total (ms)", f"{summary.get('total_mean_ms', '-')}")
+            b2.metric("P95 total (ms)", f"{summary.get('total_p95_ms', '-')}")
+            b3.metric("P99 total (ms)", f"{summary.get('total_p99_ms', '-')}")
+            b4.metric("Max total (ms)", f"{summary.get('total_max_ms', '-')}")
+        except Exception as e:
+            st.error(str(e))
+    else:
+        st.info("Bấm Benchmark hiệu năng để chạy đo độ trễ.")
+
+with tab_logs:
+    if show_logs:
+        perf_df = try_read_csv(PERF_LOG_FILE)
+        bench_df = try_read_csv(BENCHMARK_LOG_FILE)
+        t1, t2 = st.tabs(["Prediction log", "Benchmark log"])
+        with t1:
+            st.dataframe(perf_df.tail(20), use_container_width=True) if perf_df is not None and not perf_df.empty else st.info("Chưa có prediction log.")
+        with t2:
+            st.dataframe(bench_df.tail(20), use_container_width=True) if bench_df is not None and not bench_df.empty else st.info("Chưa có benchmark log.")
+    else:
+        st.info("Bật tùy chọn Hiện log gần nhất ở sidebar để xem log.")
+
+with tab_guide:
+    st.markdown("### Những gì đã được đồng bộ với notebook mới")
+    st.markdown(
+        "- Dùng đúng output directory: `outputs_quishing_paper_10fold`\n"
+        "- Render QR đúng cấu hình paper: version 13, 69×69, error correction low, border 0, box_size 1\n"
+        "- Dùng trực tiếp vector pixel QR để predict\n"
+        "- Tự phát hiện model thuộc nhánh `feature_selection` và nạp đúng `selected_idx_*.npy`\n"
+        "- Giữ dashboard đẹp, card, tab, metric box và log giống phong cách app cũ"
+    )
+    st.markdown("### Gợi ý đánh giá hiệu năng webapp")
+    st.markdown(
+        "- **Startup / model load time**\n"
+        "- **QR generation time**\n"
+        "- **Preprocessing time**\n"
+        "- **Inference time**\n"
+        "- **End-to-end latency**\n"
+        "- **RAM / CPU usage**\n"
+        "- **P95 / P99 latency**"
+    )
 
 st.markdown("---")
-st.subheader("Những gì đã sửa để khớp notebook mới")
-st.markdown(
-    "- Dùng đúng output directory: `outputs_quishing_paper_10fold`\n"
-    "- Render QR đúng cấu hình paper: version 13, 69×69, error correction low, border 0, box_size 1\n"
-    "- Dùng trực tiếp vector pixel QR để predict, không invert và không scale 0..1\n"
-    "- Tự phát hiện model thuộc nhánh `feature_selection` và nạp đúng `selected_idx_*.npy`\n"
-    "- Giữ lại dashboard đo thời gian load model, preprocess, inference và end-to-end latency"
-)
+st.caption("Bản này ưu tiên giao diện đẹp như app cũ nhưng logic đã khớp notebook paper-only 10-fold.")
