@@ -14,16 +14,25 @@ import qrcode
 from PIL import Image
 
 try:
+    import pandas as pd
+except Exception:
+    pd = None
+
+try:
     import psutil
 except Exception:
     psutil = None
 
 
+# =========================================================
+# PROJECT CONFIG
+# =========================================================
 LABEL_NAME_MAP = {0: "benign", 1: "malicious"}
 
-SCHOOL_NAME = "Học viện Kỹ thuật Mật mã"
 SCHOOL_PARENT = "Ban Cơ yếu Chính phủ"
+SCHOOL_NAME = "Học viện Kỹ thuật Mật mã"
 PROJECT_TITLE = "Phát hiện tấn công Quishing bằng Học máy"
+PROJECT_SUBTITLE = "Ứng dụng nhận diện quishing trực tiếp từ cấu trúc ảnh QR theo pipeline paper-only 10-fold"
 TEAM_MEMBERS = [
     "Vũ Thị Diệu Anh - CHAT4P001",
     "Diệp Kim Chi - CHAT4P003",
@@ -47,7 +56,11 @@ SAFE_SIMULATED_MALICIOUS_QR_PAYLOADS = [
 ]
 
 OUTPUT_DIR_CANDIDATES = [
+    Path("./outputs_quishing_paper_10fold"),
+    Path("outputs_quishing_paper_10fold"),
+    Path("/mnt/data/outputs_quishing_paper_10fold"),
     Path("./outputs"),
+    Path("outputs"),
 ]
 
 LOGO_CANDIDATES = [
@@ -68,6 +81,9 @@ QR_BOX_SIZE = 1
 QR_BORDER = 0
 
 
+# =========================================================
+# PATH / IO
+# =========================================================
 def resolve_output_dir() -> Path:
     for p in OUTPUT_DIR_CANDIDATES:
         if (p / "models_new").exists():
@@ -90,203 +106,229 @@ PERF_LOG_FILE = DEFAULT_LOG_DIR / "webapp_perf_log.csv"
 BENCHMARK_LOG_FILE = DEFAULT_LOG_DIR / "webapp_benchmark_log.csv"
 
 
+# =========================================================
+# UI STYLE
+# =========================================================
 def inject_css():
     st.markdown(
         """
         <style>
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(59,130,246,0.12), transparent 28%),
-                radial-gradient(circle at top right, rgba(16,185,129,0.10), transparent 24%),
-                linear-gradient(180deg, #0b1220 0%, #111827 35%, #0f172a 100%);
-            color: #e5eefc;
+                radial-gradient(circle at top left, rgba(59,130,246,0.10), transparent 28%),
+                radial-gradient(circle at top right, rgba(16,185,129,0.09), transparent 24%),
+                linear-gradient(180deg, #09101d 0%, #0f172a 38%, #111827 100%);
+            color: #e8eef9;
         }
+
         .block-container {
-            padding-top: 1.25rem;
-            padding-bottom: 1.5rem;
-            max-width: 1320px;
+            padding-top: 1.2rem;
+            padding-bottom: 2rem;
+            max-width: 1380px;
         }
+
         h1, h2, h3, h4 {
             color: #f8fbff !important;
             letter-spacing: 0.2px;
         }
-        .hero {
-            background: linear-gradient(135deg, rgba(37,99,235,0.24), rgba(16,185,129,0.18));
+
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(17,24,39,0.98));
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .top-shell {
+            background: linear-gradient(135deg, rgba(37,99,235,0.22), rgba(16,185,129,0.15));
             border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 24px;
-            padding: 1.25rem 1.35rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+            border-radius: 28px;
+            padding: 1.25rem 1.3rem;
+            box-shadow: 0 16px 36px rgba(0,0,0,0.24);
             margin-bottom: 1rem;
         }
-        .hero-title {
-            font-size: 2rem;
+
+        .project-eyebrow {
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: #bfdbfe;
+            letter-spacing: 0.7px;
+            margin-bottom: 0.2rem;
+            font-weight: 700;
+        }
+
+        .project-title {
+            font-size: 2.05rem;
             font-weight: 800;
-            margin-bottom: 0.25rem;
+            color: #ffffff;
+            margin-bottom: 0.35rem;
+            line-height: 1.2;
         }
-        .hero-subtitle {
-            color: #dbeafe;
+
+        .project-subtitle {
             font-size: 1rem;
-            line-height: 1.55;
-            margin-bottom: 0.75rem;
+            color: #dbeafe;
+            line-height: 1.65;
+            margin-bottom: 0.8rem;
         }
-        .badge-row {
+
+        .chip-row {
             display: flex;
-            gap: 0.55rem;
             flex-wrap: wrap;
-            margin-top: 0.5rem;
+            gap: 0.5rem;
         }
-        .badge {
+
+        .chip {
+            border-radius: 999px;
+            padding: 0.28rem 0.7rem;
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.10);
             color: #f8fafc;
-            border-radius: 999px;
-            padding: 0.28rem 0.72rem;
-            font-size: 0.84rem;
+            font-size: 0.82rem;
         }
-        .card {
+
+        .pro-card {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 22px;
+            border-radius: 24px;
             padding: 1rem 1rem;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-            margin-bottom: 0.9rem;
+            box-shadow: 0 10px 28px rgba(0,0,0,0.18);
             backdrop-filter: blur(10px);
+            margin-bottom: 0.95rem;
         }
-        .card-title {
-            font-weight: 700;
-            font-size: 1.03rem;
-            margin-bottom: 0.55rem;
+
+        .pro-card-title {
+            font-weight: 750;
+            font-size: 1.02rem;
             color: #f8fbff;
+            margin-bottom: 0.55rem;
         }
-        .soft-text {
-            color: #d1d9e6;
-            line-height: 1.6;
+
+        .soft-copy {
+            color: #d2dceb;
+            line-height: 1.65;
         }
-        .mini-grid {
+
+        .info-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.7rem;
+            gap: 0.75rem;
         }
-        .mini-item {
+
+        .info-tile {
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 16px;
-            padding: 0.7rem 0.8rem;
+            border-radius: 18px;
+            padding: 0.8rem 0.85rem;
         }
-        .mini-label {
-            font-size: 0.8rem;
-            color: #bfdbfe;
-            margin-bottom: 0.15rem;
+
+        .info-label {
+            font-size: 0.78rem;
+            color: #93c5fd;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.14rem;
         }
-        .mini-value {
-            font-size: 0.95rem;
+
+        .info-value {
+            font-size: 0.96rem;
             color: #ffffff;
             font-weight: 650;
             word-break: break-word;
         }
-        .status-good {
-            color: #86efac;
-            font-weight: 700;
-        }
-        .status-warn {
-            color: #fde68a;
-            font-weight: 700;
-        }
-        .info-panel {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 22px;
-            padding: 1rem 1rem;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-            min-height: 100%;
-        }
-        .school-parent {
-            color: #bfdbfe;
-            font-size: 0.88rem;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
-            margin-bottom: 0.2rem;
-        }
-        .school-name {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: #ffffff;
-            margin-bottom: 0.25rem;
-        }
-        .project-name {
-            color: #dbeafe;
-            font-size: 1rem;
-            line-height: 1.55;
-        }
-        .section-label {
-            font-size: 0.82rem;
-            color: #93c5fd;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.45rem;
-            font-weight: 700;
-        }
-        .person-list {
+
+        .team-list {
             margin: 0;
             padding-left: 1rem;
-            color: #f8fafc;
-            line-height: 1.75;
-        }
-        .advisor-name {
             color: #ffffff;
-            font-weight: 700;
-            font-size: 1rem;
+            line-height: 1.8;
         }
-        .logo-fallback {
-            width: 150px;
-            height: 150px;
-            border-radius: 28px;
-            background: linear-gradient(135deg, rgba(37,99,235,0.32), rgba(16,185,129,0.24));
+
+        .logo-box {
+            width: 165px;
+            height: 165px;
+            margin: auto;
+            border-radius: 30px;
+            background: linear-gradient(135deg, rgba(37,99,235,0.30), rgba(16,185,129,0.22));
             border: 1px solid rgba(255,255,255,0.10);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            color: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-            margin: auto;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22);
         }
-        .logo-fallback-big {
-            font-size: 2rem;
+
+        .logo-big {
+            color: white;
+            font-size: 2.2rem;
             font-weight: 800;
             letter-spacing: 1px;
         }
-        .logo-fallback-small {
-            font-size: 0.8rem;
+
+        .logo-small {
             color: #dbeafe;
-            margin-top: 0.15rem;
+            font-size: 0.82rem;
         }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.11), rgba(255,255,255,0));
+            margin: 0.8rem 0 0.35rem 0;
+        }
+
+        .prediction-banner-good {
+            background: rgba(16,185,129,0.14);
+            border: 1px solid rgba(16,185,129,0.25);
+            color: #bbf7d0;
+            border-radius: 18px;
+            padding: 0.8rem 0.95rem;
+            font-weight: 700;
+        }
+
+        .prediction-banner-danger {
+            background: rgba(239,68,68,0.14);
+            border: 1px solid rgba(239,68,68,0.22);
+            color: #fecaca;
+            border-radius: 18px;
+            padding: 0.8rem 0.95rem;
+            font-weight: 700;
+        }
+
+        .prediction-banner-neutral {
+            background: rgba(59,130,246,0.13);
+            border: 1px solid rgba(59,130,246,0.22);
+            color: #dbeafe;
+            border-radius: 18px;
+            padding: 0.8rem 0.95rem;
+            font-weight: 700;
+        }
+
         div[data-testid="stMetric"] {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.07);
-            padding: 0.75rem 0.9rem;
             border-radius: 18px;
+            padding: 0.78rem 0.9rem;
         }
+
         div[data-testid="stMetricLabel"] {
             color: #cbd5e1;
         }
-        div[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98));
-            border-right: 1px solid rgba(255,255,255,0.05);
-        }
+
         .stTabs [data-baseweb="tab-list"] {
-            gap: 0.4rem;
+            gap: 0.45rem;
         }
+
         .stTabs [data-baseweb="tab"] {
             background: rgba(255,255,255,0.04);
-            border-radius: 14px 14px 0 0;
             color: #dbeafe;
-            padding: 0.55rem 0.95rem;
+            border-radius: 14px 14px 0 0;
+            padding: 0.58rem 0.95rem;
         }
+
         .stTabs [aria-selected="true"] {
-            background: rgba(37,99,235,0.20) !important;
-            color: #ffffff !important;
+            background: rgba(37,99,235,0.18) !important;
+            color: white !important;
         }
+
         code {
             white-space: pre-wrap !important;
             word-break: break-word;
@@ -297,22 +339,41 @@ def inject_css():
     )
 
 
-def card(title: str, body: str):
+def ui_card(title: str, body: str):
     st.markdown(
         f"""
-        <div class="card">
-            <div class="card-title">{title}</div>
-            <div class="soft-text">{body}</div>
+        <div class="pro-card">
+            <div class="pro-card-title">{title}</div>
+            <div class="soft-copy">{body}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_project_header():
-    logo_path = resolve_logo_path()
+def render_project_shell(model_count: int):
+    st.markdown(
+        f"""
+        <div class="top-shell">
+            <div class="project-eyebrow">{SCHOOL_PARENT} · {SCHOOL_NAME}</div>
+            <div class="project-title">{PROJECT_TITLE}</div>
+            <div class="project-subtitle">{PROJECT_SUBTITLE}</div>
+            <div class="chip-row">
+                <span class="chip">QR version 13</span>
+                <span class="chip">69 × 69</span>
+                <span class="chip">10-fold paper setup</span>
+                <span class="chip">{model_count} model files</span>
+                <span class="chip">Feature selection supported</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    col1, col2, col3 = st.columns([0.75, 1.5, 1.25], gap="large")
+
+def render_identity_panel():
+    logo_path = resolve_logo_path()
+    col1, col2, col3 = st.columns([0.85, 1.3, 1.15], gap="large")
 
     with col1:
         if logo_path is not None:
@@ -321,22 +382,34 @@ def render_project_header():
         else:
             st.markdown(
                 """
-                <div class="logo-fallback">
-                    <div class="logo-fallback-big">KMA</div>
-                    <div class="logo-fallback-small">School logo</div>
+                <div class="logo-box">
+                    <div class="logo-big">KMA</div>
+                    <div class="logo-small">School logo</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-            st.caption("Đặt file logo vào cùng thư mục app với tên: logo_kma.png hoặc logo.png")
+            st.caption("Đặt file logo_kma.png hoặc logo.png cạnh app để hiện logo thật.")
 
     with col2:
         st.markdown(
             f"""
-            <div class="info-panel">
-                <div class="school-parent">{SCHOOL_PARENT}</div>
-                <div class="school-name">{SCHOOL_NAME}</div>
-                <div class="project-name">{PROJECT_TITLE}</div>
+            <div class="pro-card">
+                <div class="pro-card-title">Thông tin đề tài</div>
+                <div class="info-grid">
+                    <div class="info-tile">
+                        <div class="info-label">Đơn vị</div>
+                        <div class="info-value">{SCHOOL_NAME}</div>
+                    </div>
+                    <div class="info-tile">
+                        <div class="info-label">Cơ quan</div>
+                        <div class="info-value">{SCHOOL_PARENT}</div>
+                    </div>
+                    <div class="info-tile" style="grid-column: span 2;">
+                        <div class="info-label">Chủ đề</div>
+                        <div class="info-value">{PROJECT_TITLE}</div>
+                    </div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -346,18 +419,21 @@ def render_project_header():
         members_html = "".join([f"<li>{m}</li>" for m in TEAM_MEMBERS])
         st.markdown(
             f"""
-            <div class="info-panel">
-                <div class="section-label">Nhóm thực hiện</div>
-                <ul class="person-list">{members_html}</ul>
-                <div style="height: 0.8rem;"></div>
-                <div class="section-label">Giảng viên hướng dẫn</div>
-                <div class="advisor-name">{ADVISOR_NAME}</div>
+            <div class="pro-card">
+                <div class="pro-card-title">Nhóm thực hiện</div>
+                <ul class="team-list">{members_html}</ul>
+                <div class="section-divider"></div>
+                <div class="info-label">Giảng viên hướng dẫn</div>
+                <div class="info-value">{ADVISOR_NAME}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
 
+# =========================================================
+# APP HELPERS
+# =========================================================
 def get_safe_qr_payload(qr_type: str = "benign", sample_index: int = 0):
     qr_type = str(qr_type).strip().lower()
     if qr_type in {"benign", "normal", "safe"}:
@@ -453,8 +529,9 @@ def log_perf(stage: str, elapsed_s: float, extra: dict | None = None):
 def try_read_csv(path: Path):
     if not path.exists():
         return None
+    if pd is None:
+        return None
     try:
-        import pandas as pd
         return pd.read_csv(path)
     except Exception:
         return None
@@ -617,33 +694,94 @@ def run_benchmark(model, text: str, qr_source: str, model_path: str, selected_id
     return summary
 
 
-st.set_page_config(page_title="QR Quishing Demo - Paper UI", layout="wide")
+def render_prediction_banner(result: dict):
+    label = str(result.get("predicted_label_name", "")).lower()
+    score = result.get("prob_class_1", "-")
+    if label == "malicious":
+        cls = "prediction-banner-danger"
+        text = f"Kết quả dự đoán: MALICIOUS · Mức nghi ngờ class 1 = {score}"
+    elif label == "benign":
+        cls = "prediction-banner-good"
+        text = f"Kết quả dự đoán: BENIGN · Mức nghi ngờ class 1 = {score}"
+    else:
+        cls = "prediction-banner-neutral"
+        text = f"Kết quả dự đoán: {label.upper()} · Score class 1 = {score}"
+
+    st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
+
+
+def render_registry_card(metadata: dict, model_path: str, selected_idx_path: Path | None, use_cache: bool, load_elapsed_s: float):
+    stage_text = str(metadata.get("stage", "unknown"))
+    if stage_text == "feature_selection":
+        stage_label = "Feature Selection"
+    elif stage_text == "cv10_baseline":
+        stage_label = "CV10 Baseline"
+    else:
+        stage_label = stage_text
+
+    st.markdown(
+        f"""
+        <div class="pro-card">
+            <div class="pro-card-title">Model Registry</div>
+            <div class="info-grid">
+                <div class="info-tile">
+                    <div class="info-label">Stage</div>
+                    <div class="info-value">{stage_label}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Model name</div>
+                    <div class="info-value">{metadata.get("model_name", "-")}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Fold</div>
+                    <div class="info-value">{metadata.get("fold", "-")}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Load time</div>
+                    <div class="info-value">{round(load_elapsed_s * 1000.0, 3)} ms</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Selector</div>
+                    <div class="info-value">{metadata.get("selector_name", "-")}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Top-k</div>
+                    <div class="info-value">{metadata.get("top_k", "-")}</div>
+                </div>
+                <div class="info-tile" style="grid-column: span 2;">
+                    <div class="info-label">Model path</div>
+                    <div class="info-value">{model_path}</div>
+                </div>
+                <div class="info-tile" style="grid-column: span 2;">
+                    <div class="info-label">Selected idx path</div>
+                    <div class="info-value">{str(selected_idx_path) if selected_idx_path else "-"}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Cache mode</div>
+                    <div class="info-value">{use_cache}</div>
+                </div>
+                <div class="info-tile">
+                    <div class="info-label">Output dir</div>
+                    <div class="info-value">{DEFAULT_OUTPUT_DIR}</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# APP START
+# =========================================================
+st.set_page_config(page_title="QR Quishing Professional App", layout="wide")
 inject_css()
 
 model_files = sorted(DEFAULT_OUTPUT_DIR.glob("models_new/**/*.joblib"))
 model_count = len(model_files)
 
-st.markdown(
-    f"""
-    <div class="hero">
-        <div class="hero-title">QR Quishing Demo</div>
-        <div class="hero-subtitle">
-            Giao diện đẹp theo kiểu dashboard của app cũ, nhưng phần xử lý đã khớp notebook train mới.
-            App tự hỗ trợ model baseline lẫn feature selection.
-        </div>
-        <div class="badge-row">
-            <span class="badge">QR version 13</span>
-            <span class="badge">69×69</span>
-            <span class="badge">10-fold paper setup</span>
-            <span class="badge">{model_count} model files</span>
-            <span class="badge">Feature selection supported</span>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-render_project_header()
+render_project_shell(model_count=model_count)
+render_identity_panel()
 
 if not model_files:
     st.warning(f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models_new'}. Hãy chạy notebook train mới trước.")
@@ -651,11 +789,20 @@ if not model_files:
 
 with st.sidebar:
     st.header("Cấu hình hệ thống")
-    st.caption("Đã đồng bộ với notebook paper-only 10-fold.")
+    st.caption("Phiên bản giao diện đã được thiết kế lại theo hướng chuyên nghiệp hơn.")
     st.write({"output_dir": str(DEFAULT_OUTPUT_DIR.resolve())})
     use_cache = st.checkbox("Dùng cache khi load model", value=True)
     benchmark_runs = st.slider("Số lần benchmark", min_value=10, max_value=500, value=100, step=10)
     show_logs = st.checkbox("Hiện log gần nhất", value=True)
+    st.markdown("---")
+    st.markdown("**QR chuẩn paper**")
+    st.write({
+        "version": QR_VERSION,
+        "shape": TARGET_SHAPE,
+        "error_correction": "L",
+        "border": QR_BORDER,
+        "box_size": QR_BOX_SIZE,
+    })
 
 model_path = st.selectbox("Chọn model đã train", options=[str(p) for p in model_files])
 
@@ -681,10 +828,21 @@ log_perf(
     },
 )
 
-top_col_1, top_col_2 = st.columns([1.15, 1])
+render_registry_card(
+    metadata=metadata,
+    model_path=model_path,
+    selected_idx_path=selected_idx_path,
+    use_cache=use_cache,
+    load_elapsed_s=load_elapsed_s,
+)
 
-with top_col_1:
-    st.markdown('<div class="card-title">Thiết lập đầu vào</div>', unsafe_allow_html=True)
+top_left, top_right = st.columns([1.1, 1], gap="large")
+
+with top_left:
+    ui_card(
+        "Phòng thí nghiệm đầu vào",
+        "Chọn QR synthetic hoặc nhập nội dung thủ công. Ứng dụng sẽ sinh QR đúng chuẩn paper rồi đưa vào model đã train."
+    )
     input_mode = st.radio("Nguồn QR", ["Synthetic", "Text nhập tay"], horizontal=True)
     is_synthetic_mode = input_mode == "Synthetic"
 
@@ -698,46 +856,33 @@ with top_col_1:
         "Nội dung QR thủ công",
         value="https://example.com",
         disabled=is_synthetic_mode,
-        help="App sẽ tạo QR theo đúng version 13 cố định, nên nội dung quá dài có thể không encode được.",
-        height=120,
+        height=130,
+        help="Vì app dùng version 13 cố định, nội dung quá dài có thể không tạo được QR.",
     )
 
-    st.info("Đang dùng QR synthetic." if is_synthetic_mode else "Đang dùng nội dung nhập tay.")
+    if is_synthetic_mode:
+        st.info("Chế độ đang hoạt động: Synthetic demo.")
+    else:
+        st.info("Chế độ đang hoạt động: Text nhập tay.")
 
-    btn_col1, btn_col2 = st.columns(2)
-    with btn_col1:
-        run_predict = st.button("Predict QR", type="primary", use_container_width=True)
-    with btn_col2:
-        run_bench = st.button("Benchmark hiệu năng", use_container_width=True)
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
+        run_predict = st.button("Phân tích QR", type="primary", use_container_width=True)
+    with action_col2:
+        run_bench = st.button("Chạy benchmark", use_container_width=True)
 
-with top_col_2:
-    stage_text = str(metadata.get("stage", "unknown"))
-    status = '<span class="status-good">Feature Selection</span>' if stage_text == "feature_selection" else (
-        '<span class="status-good">CV10 Baseline</span>' if stage_text == "cv10_baseline" else f'<span class="status-warn">{stage_text}</span>'
+with top_right:
+    ui_card(
+        "Mục tiêu của app",
+        "Đây là bản demo trình diễn khả năng phát hiện quishing trực tiếp từ cấu trúc ảnh QR. "
+        "App đồng thời hỗ trợ đo hiệu năng để phục vụ báo cáo và demo trước hội đồng."
     )
 
-    st.markdown(
-        f"""
-        <div class="card">
-            <div class="card-title">Thông tin model</div>
-            <div class="mini-grid">
-                <div class="mini-item"><div class="mini-label">Stage</div><div class="mini-value">{status}</div></div>
-                <div class="mini-item"><div class="mini-label">Model</div><div class="mini-value">{metadata.get("model_name", "-")}</div></div>
-                <div class="mini-item"><div class="mini-label">Fold</div><div class="mini-value">{metadata.get("fold", "-")}</div></div>
-                <div class="mini-item"><div class="mini-label">Load model</div><div class="mini-value">{round(load_elapsed_s * 1000.0, 3)} ms</div></div>
-                <div class="mini-item"><div class="mini-label">Selector</div><div class="mini-value">{metadata.get("selector_name", "-")}</div></div>
-                <div class="mini-item"><div class="mini-label">Top-k</div><div class="mini-value">{metadata.get("top_k", "-")}</div></div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.json({
-        "selected_model": model_path,
-        "selected_idx_path": str(selected_idx_path) if selected_idx_path else None,
-        "cache_enabled": use_cache,
-        "output_dir": str(DEFAULT_OUTPUT_DIR),
-    })
+    meta_a, meta_b, meta_c, meta_d = st.columns(4)
+    meta_a.metric("Model files", model_count)
+    meta_b.metric("Load model", f"{round(load_elapsed_s * 1000.0, 3)} ms")
+    meta_c.metric("Top-k", metadata.get("top_k", "-"))
+    meta_d.metric("Stage", str(metadata.get("stage", "-")))
 
 if input_mode == "Synthetic":
     qr_type, text = get_safe_qr_payload(qr_type=qr_type, sample_index=sample_index)
@@ -745,10 +890,24 @@ else:
     text = custom_text
     qr_type = "custom"
 
-tab_predict, tab_bench, tab_logs, tab_guide = st.tabs(["Dự đoán", "Benchmark", "Log hệ thống", "Hướng dẫn"])
+tab_predict, tab_bench, tab_logs, tab_about = st.tabs(
+    ["Dự đoán trực tiếp", "Phân tích hiệu năng", "Nhật ký hệ thống", "Tổng quan dự án"]
+)
 
 with tab_predict:
-    card("Mô tả", "Tab này sinh QR đúng chuẩn paper rồi đưa vào model đã train. Nếu model thuộc nhánh feature selection, app sẽ tự nạp selected_idx để cắt feature trước khi dự đoán.")
+    left, right = st.columns([0.9, 1.1], gap="large")
+    with left:
+        ui_card(
+            "QR Preview",
+            "Vùng này hiển thị QR được sinh ra từ payload đầu vào và tóm tắt ma trận ảnh trước khi đưa vào mô hình."
+        )
+
+    with right:
+        ui_card(
+            "Prediction Output",
+            "Kết quả hiển thị gồm nhãn dự đoán, score class 1, kích thước feature thực dùng và thời gian xử lý từng bước."
+        )
+
     if run_predict:
         try:
             img, arr, result = run_single_prediction(
@@ -761,22 +920,32 @@ with tab_predict:
             )
             perf_stats = get_process_stats()
 
-            c1, c2 = st.columns([1, 1.2])
-            with c1:
-                st.markdown('<div class="card-title">QR preview</div>', unsafe_allow_html=True)
+            left, right = st.columns([0.9, 1.1], gap="large")
+            with left:
                 st.image(img, caption=f"QR rendered | source={qr_type}", use_container_width=False)
                 st.write("**Payload**")
                 st.code(text)
                 st.write("**QR matrix summary**")
-                st.write({"shape": arr.shape, "pixel_min": int(arr.min()), "pixel_max": int(arr.max()), "pixel_mean": round(float(arr.mean()), 4)})
-            with c2:
-                st.markdown('<div class="card-title">Kết quả dự đoán</div>', unsafe_allow_html=True)
+                st.write(
+                    {
+                        "shape": arr.shape,
+                        "pixel_min": int(arr.min()),
+                        "pixel_max": int(arr.max()),
+                        "pixel_mean": round(float(arr.mean()), 4),
+                    }
+                )
+
+            with right:
+                render_prediction_banner(result)
+                st.write("")
                 st.json(result)
+
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Load model (ms)", f"{round(load_elapsed_s * 1000.0, 3)}")
                 m2.metric("QR gen (ms)", f"{result['timing_ms']['qr_generation_ms']}")
                 m3.metric("Preprocess (ms)", f"{result['timing_ms']['preprocess_ms']}")
                 m4.metric("Inference (ms)", f"{result['timing_ms']['inference_ms']}")
+
                 m5, m6, m7 = st.columns(3)
                 m5.metric("End-to-end (ms)", f"{result['timing_ms']['end_to_end_ms']}")
                 m6.metric("RAM (MB)", "-" if perf_stats["ram_mb"] is None else str(perf_stats["ram_mb"]))
@@ -784,10 +953,15 @@ with tab_predict:
         except Exception as e:
             st.error(str(e))
     else:
-        st.info("Chọn nguồn QR và bấm Predict QR để xem kết quả.")
+        st.info("Bấm **Phân tích QR** để chạy dự đoán trên payload hiện tại.")
 
 with tab_bench:
-    card("Benchmark hiệu năng", "Đo generate QR, preprocess, inference và end-to-end latency. Khi báo cáo, nên theo dõi mean, p95, p99.")
+    ui_card(
+        "Benchmark Lab",
+        "Benchmark đo riêng thời gian tạo QR, tiền xử lý, suy luận mô hình và tổng end-to-end latency. "
+        "Các chỉ số p95, p99 đặc biệt hữu ích khi trình bày hiệu năng ứng dụng."
+    )
+
     if run_bench:
         try:
             with st.spinner("Đang benchmark..."):
@@ -800,43 +974,82 @@ with tab_bench:
                     metadata=metadata,
                     n_runs=benchmark_runs,
                 )
+
             st.json(summary)
+
             b1, b2, b3, b4 = st.columns(4)
             b1.metric("Mean total (ms)", f"{summary.get('total_mean_ms', '-')}")
             b2.metric("P95 total (ms)", f"{summary.get('total_p95_ms', '-')}")
             b3.metric("P99 total (ms)", f"{summary.get('total_p99_ms', '-')}")
             b4.metric("Max total (ms)", f"{summary.get('total_max_ms', '-')}")
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Mean infer (ms)", f"{summary.get('infer_mean_ms', '-')}")
+            c2.metric("Mean preprocess (ms)", f"{summary.get('preprocess_mean_ms', '-')}")
+            c3.metric("Mean generate (ms)", f"{summary.get('generate_mean_ms', '-')}")
         except Exception as e:
             st.error(str(e))
     else:
-        st.info("Bấm Benchmark hiệu năng để chạy đo độ trễ.")
+        st.info("Bấm **Chạy benchmark** để tạo báo cáo độ trễ.")
+
+    if pd is not None:
+        bench_df = try_read_csv(BENCHMARK_LOG_FILE)
+        if bench_df is not None and not bench_df.empty:
+            st.markdown("#### Lịch sử benchmark gần đây")
+            st.dataframe(bench_df.tail(10), use_container_width=True)
+
+            if "total_mean_ms" in bench_df.columns:
+                chart_df = bench_df.tail(20).copy()
+                chart_df["run_id"] = range(1, len(chart_df) + 1)
+                st.line_chart(chart_df.set_index("run_id")[["total_mean_ms", "infer_mean_ms", "generate_mean_ms"]])
 
 with tab_logs:
     if show_logs:
         perf_df = try_read_csv(PERF_LOG_FILE)
         bench_df = try_read_csv(BENCHMARK_LOG_FILE)
-        t1, t2 = st.tabs(["Prediction log", "Benchmark log"])
-        with t1:
-            st.dataframe(perf_df.tail(20), use_container_width=True) if perf_df is not None and not perf_df.empty else st.info("Chưa có prediction log.")
-        with t2:
-            st.dataframe(bench_df.tail(20), use_container_width=True) if bench_df is not None and not bench_df.empty else st.info("Chưa có benchmark log.")
-    else:
-        st.info("Bật tùy chọn Hiện log gần nhất ở sidebar để xem log.")
 
-with tab_guide:
-    st.markdown("### Những gì đã được đồng bộ với notebook mới")
+        log_tab1, log_tab2 = st.tabs(["Prediction log", "Benchmark log"])
+        with log_tab1:
+            if perf_df is not None and not perf_df.empty:
+                st.dataframe(perf_df.tail(25), use_container_width=True)
+            else:
+                st.info("Chưa có prediction log.")
+        with log_tab2:
+            if bench_df is not None and not bench_df.empty:
+                st.dataframe(bench_df.tail(25), use_container_width=True)
+            else:
+                st.info("Chưa có benchmark log.")
+    else:
+        st.info("Bật tùy chọn **Hiện log gần nhất** ở sidebar để xem nhật ký.")
+
+with tab_about:
+    about_left, about_right = st.columns([1, 1], gap="large")
+    with about_left:
+        ui_card(
+            "Những gì app đã đồng bộ với notebook mới",
+            "- Dùng đúng output directory `outputs_quishing_paper_10fold`<br>"
+            "- Render QR đúng cấu hình paper: version 13, 69×69, error correction low, border 0, box_size 1<br>"
+            "- Dùng trực tiếp vector pixel QR để predict<br>"
+            "- Tự phát hiện model thuộc nhánh feature selection và nạp `selected_idx_*.npy`"
+        )
+
+    with about_right:
+        ui_card(
+            "Cách dùng hiệu quả khi demo",
+            "- Ưu tiên chọn model tốt nhất trong registry<br>"
+            "- Dùng Synthetic để trình diễn ổn định<br>"
+            "- Dùng Benchmark để lấy mean, p95, p99 cho báo cáo<br>"
+            "- Đặt logo thật bằng file `logo_kma.png` hoặc `logo.png` cạnh app"
+        )
+
+    st.markdown("### Thành phần giao diện")
     st.markdown(
-        "- Dùng đúng output directory: `outputs_quishing_paper_10fold`\n"
-        "- Render QR đúng cấu hình paper: version 13, 69×69, error correction low, border 0, box_size 1\n"
-        "- Dùng trực tiếp vector pixel QR để predict\n"
-        "- Tự phát hiện model thuộc nhánh `feature_selection` và nạp đúng `selected_idx_*.npy`\n"
-        "- Có thêm khu vực trường, nhóm thực hiện và giảng viên hướng dẫn ở đầu app"
-    )
-    st.markdown("### Gợi ý thêm logo")
-    st.markdown(
-        "- Đặt file logo vào cùng thư mục app với tên `logo_kma.png` hoặc `logo.png`\n"
-        "- Nếu chưa có file logo, app sẽ hiện khối chữ `KMA` thay thế"
+        "- Khu vực nhận diện đề tài ở đầu trang<br>"
+        "- Panel thông tin trường, nhóm thực hiện, giảng viên hướng dẫn<br>"
+        "- Model Registry tách riêng<br>"
+        "- Khu vực thao tác chính chia rõ: input / prediction / benchmark / logs / project overview",
+        unsafe_allow_html=True,
     )
 
 st.markdown("---")
-st.caption("Bản này đã bổ sung khu vực logo trường, nhóm thực hiện và người hướng dẫn.")
+st.caption("Phiên bản này được thiết kế lại toàn bộ theo hướng chuyên nghiệp, phục vụ tốt cho demo và báo cáo.")
