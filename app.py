@@ -72,6 +72,7 @@ LOGO_CANDIDATES = [
     Path("./logo.jpg"),
     Path("./assets/logo_kma.png"),
     Path("./assets/logo.png"),
+    Path("./assets/KMA_logo.png"),
 ]
 
 TARGET_SHAPE = (69, 69)
