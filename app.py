@@ -123,7 +123,7 @@ def inject_css():
         }
 
         .block-container {
-            padding-top: 1.2rem;
+            padding-top: 1.8rem;
             padding-bottom: 2rem;
             max-width: 1380px;
         }
@@ -142,9 +142,10 @@ def inject_css():
             background: linear-gradient(135deg, rgba(37,99,235,0.22), rgba(16,185,129,0.15));
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 28px;
-            padding: 1.25rem 1.3rem;
+            padding: 1.55rem 1.35rem 1.3rem 1.35rem;
             box-shadow: 0 16px 36px rgba(0,0,0,0.24);
             margin-bottom: 1rem;
+            overflow: visible;
         }
 
         .project-eyebrow {
@@ -152,23 +153,30 @@ def inject_css():
             font-size: 0.8rem;
             color: #bfdbfe;
             letter-spacing: 0.7px;
-            margin-bottom: 0.2rem;
+            margin-bottom: 0.35rem;
             font-weight: 700;
+            line-height: 1.45;
+            padding-top: 0.05rem;
+            overflow: visible;
         }
 
         .project-title {
             font-size: 2.05rem;
             font-weight: 800;
             color: #ffffff;
-            margin-bottom: 0.35rem;
-            line-height: 1.2;
+            margin-bottom: 0.45rem;
+            line-height: 1.35;
+            padding-top: 0.12rem;
+            padding-bottom: 0.08rem;
+            overflow: visible;
         }
 
         .project-subtitle {
             font-size: 1rem;
             color: #dbeafe;
-            line-height: 1.65;
-            margin-bottom: 0.8rem;
+            line-height: 1.72;
+            margin-bottom: 0.9rem;
+            overflow: visible;
         }
 
         .chip-row {
@@ -781,6 +789,7 @@ inject_css()
 model_files = sorted(DEFAULT_OUTPUT_DIR.glob("models_new/**/*.joblib"))
 model_count = len(model_files)
 
+st.markdown('<div style="height:0.25rem"></div>', unsafe_allow_html=True)
 render_project_shell(model_count=model_count)
 render_identity_panel()
 
