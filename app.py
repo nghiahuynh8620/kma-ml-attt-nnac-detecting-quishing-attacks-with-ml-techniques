@@ -42,11 +42,7 @@ SAFE_SIMULATED_MALICIOUS_QR_PAYLOADS = [
 ]
 
 OUTPUT_DIR_CANDIDATES = [
-    Path("./outputs_quishing_paper_10fold"),
-    Path("outputs_quishing_paper_10fold"),
-    Path("/mnt/data/outputs_quishing_paper_10fold"),
     Path("./outputs"),
-    Path("outputs"),
 ]
 
 TARGET_SHAPE = (69, 69)
