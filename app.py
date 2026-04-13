@@ -21,6 +21,17 @@ except Exception:
 
 LABEL_NAME_MAP = {0: "benign", 1: "malicious"}
 
+SCHOOL_NAME = "Học viện Kỹ thuật Mật mã"
+SCHOOL_PARENT = "Ban Cơ yếu Chính phủ"
+PROJECT_TITLE = "Phát hiện tấn công Quishing bằng Học máy"
+TEAM_MEMBERS = [
+    "Vũ Thị Diệu Anh - CHAT4P001",
+    "Diệp Kim Chi - CHAT4P003",
+    "Huỳnh Trọng Nghĩa - CHAT4P011",
+    "Võ Minh Nhật - CHAT4P013",
+]
+ADVISOR_NAME = "TS. Nguyễn An Khương"
+
 SAFE_BENIGN_QR_PAYLOADS = [
     "https://example.com",
     "https://example.org/library",
@@ -39,6 +50,17 @@ OUTPUT_DIR_CANDIDATES = [
     Path("./outputs"),
 ]
 
+LOGO_CANDIDATES = [
+    Path("./logo_kma.png"),
+    Path("./logo_kma.jpg"),
+    Path("./logo_kma.jpeg"),
+    Path("./logo_kma.webp"),
+    Path("./logo.png"),
+    Path("./logo.jpg"),
+    Path("./assets/logo_kma.png"),
+    Path("./assets/logo.png"),
+]
+
 TARGET_SHAPE = (69, 69)
 QR_VERSION = 13
 QR_ERROR_CORRECTION = qrcode.constants.ERROR_CORRECT_L
@@ -51,6 +73,13 @@ def resolve_output_dir() -> Path:
         if (p / "models_new").exists():
             return p
     return Path("./outputs_quishing_paper_10fold")
+
+
+def resolve_logo_path() -> Path | None:
+    for p in LOGO_CANDIDATES:
+        if p.exists():
+            return p
+    return None
 
 
 DEFAULT_OUTPUT_DIR = resolve_output_dir()
@@ -73,9 +102,9 @@ def inject_css():
             color: #e5eefc;
         }
         .block-container {
-            padding-top: 1.4rem;
+            padding-top: 1.25rem;
             padding-bottom: 1.5rem;
-            max-width: 1280px;
+            max-width: 1320px;
         }
         h1, h2, h3, h4 {
             color: #f8fbff !important;
@@ -92,7 +121,7 @@ def inject_css():
         .hero-title {
             font-size: 2rem;
             font-weight: 800;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.25rem;
         }
         .hero-subtitle {
             color: #dbeafe;
@@ -163,6 +192,75 @@ def inject_css():
             color: #fde68a;
             font-weight: 700;
         }
+        .info-panel {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
+            padding: 1rem 1rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            min-height: 100%;
+        }
+        .school-parent {
+            color: #bfdbfe;
+            font-size: 0.88rem;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 0.2rem;
+        }
+        .school-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 0.25rem;
+        }
+        .project-name {
+            color: #dbeafe;
+            font-size: 1rem;
+            line-height: 1.55;
+        }
+        .section-label {
+            font-size: 0.82rem;
+            color: #93c5fd;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.45rem;
+            font-weight: 700;
+        }
+        .person-list {
+            margin: 0;
+            padding-left: 1rem;
+            color: #f8fafc;
+            line-height: 1.75;
+        }
+        .advisor-name {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .logo-fallback {
+            width: 150px;
+            height: 150px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(37,99,235,0.32), rgba(16,185,129,0.24));
+            border: 1px solid rgba(255,255,255,0.10);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+            margin: auto;
+        }
+        .logo-fallback-big {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .logo-fallback-small {
+            font-size: 0.8rem;
+            color: #dbeafe;
+            margin-top: 0.15rem;
+        }
         div[data-testid="stMetric"] {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.07);
@@ -209,6 +307,55 @@ def card(title: str, body: str):
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_project_header():
+    logo_path = resolve_logo_path()
+
+    col1, col2, col3 = st.columns([0.75, 1.5, 1.25], gap="large")
+
+    with col1:
+        if logo_path is not None:
+            st.image(str(logo_path), use_container_width=True)
+            st.caption(f"Logo: {logo_path.name}")
+        else:
+            st.markdown(
+                """
+                <div class="logo-fallback">
+                    <div class="logo-fallback-big">KMA</div>
+                    <div class="logo-fallback-small">School logo</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.caption("Đặt file logo vào cùng thư mục app với tên: logo_kma.png hoặc logo.png")
+
+    with col2:
+        st.markdown(
+            f"""
+            <div class="info-panel">
+                <div class="school-parent">{SCHOOL_PARENT}</div>
+                <div class="school-name">{SCHOOL_NAME}</div>
+                <div class="project-name">{PROJECT_TITLE}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col3:
+        members_html = "".join([f"<li>{m}</li>" for m in TEAM_MEMBERS])
+        st.markdown(
+            f"""
+            <div class="info-panel">
+                <div class="section-label">Nhóm thực hiện</div>
+                <ul class="person-list">{members_html}</ul>
+                <div style="height: 0.8rem;"></div>
+                <div class="section-label">Giảng viên hướng dẫn</div>
+                <div class="advisor-name">{ADVISOR_NAME}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def get_safe_qr_payload(qr_type: str = "benign", sample_index: int = 0):
@@ -496,6 +643,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_project_header()
+
 if not model_files:
     st.warning(f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models_new'}. Hãy chạy notebook train mới trước.")
     st.stop()
@@ -681,18 +830,13 @@ with tab_guide:
         "- Render QR đúng cấu hình paper: version 13, 69×69, error correction low, border 0, box_size 1\n"
         "- Dùng trực tiếp vector pixel QR để predict\n"
         "- Tự phát hiện model thuộc nhánh `feature_selection` và nạp đúng `selected_idx_*.npy`\n"
-        "- Giữ dashboard đẹp, card, tab, metric box và log giống phong cách app cũ"
+        "- Có thêm khu vực trường, nhóm thực hiện và giảng viên hướng dẫn ở đầu app"
     )
-    st.markdown("### Gợi ý đánh giá hiệu năng webapp")
+    st.markdown("### Gợi ý thêm logo")
     st.markdown(
-        "- **Startup / model load time**\n"
-        "- **QR generation time**\n"
-        "- **Preprocessing time**\n"
-        "- **Inference time**\n"
-        "- **End-to-end latency**\n"
-        "- **RAM / CPU usage**\n"
-        "- **P95 / P99 latency**"
+        "- Đặt file logo vào cùng thư mục app với tên `logo_kma.png` hoặc `logo.png`\n"
+        "- Nếu chưa có file logo, app sẽ hiện khối chữ `KMA` thay thế"
     )
 
 st.markdown("---")
-st.caption("Bản này ưu tiên giao diện đẹp như app cũ nhưng logic đã khớp notebook paper-only 10-fold.")
+st.caption("Bản này đã bổ sung khu vực logo trường, nhóm thực hiện và người hướng dẫn.")
