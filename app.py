@@ -71,7 +71,6 @@ LOGO_CANDIDATES = [
     Path("./logo.png"),
     Path("./logo.jpg"),
     Path("./assets/logo_kma.png"),
-    Path("./assets/logo.png"),
     Path("./assets/KMA_logo.png"),
 ]
 
@@ -554,24 +553,87 @@ def resolve_results_dir_from_model_path(model_path: str) -> Path:
     return DEFAULT_OUTPUT_DIR / "results"
 
 
-def resolve_selected_idx_path(model_path: str, metadata: dict) -> Path | None:
+def sanitize_name(name: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ["_", "-"] else "_" for ch in str(name))
+
+
+def find_candidate_selected_idx_paths(model_path: str, metadata: dict) -> list[Path]:
     selector_name = metadata.get("selector_name")
-    stage = str(metadata.get("stage", "")).strip().lower()
-    if stage != "feature_selection" and not selector_name:
-        return None
-    if not selector_name:
-        return None
     results_dir = resolve_results_dir_from_model_path(model_path)
-    idx_path = results_dir / f"selected_idx_{selector_name}.npy"
-    return idx_path if idx_path.exists() else None
+    base_results_dir = DEFAULT_OUTPUT_DIR / "results"
+
+    candidates: list[Path] = []
+
+    if selector_name:
+        safe_selector = sanitize_name(selector_name)
+        candidates.extend([
+            results_dir / f"selected_idx_{selector_name}.npy",
+            results_dir / f"selected_idx_{safe_selector}.npy",
+            base_results_dir / f"selected_idx_{selector_name}.npy",
+            base_results_dir / f"selected_idx_{safe_selector}.npy",
+        ])
+        candidates.extend(sorted(results_dir.glob(f"**/selected_idx_{safe_selector}.npy")))
+        candidates.extend(sorted(base_results_dir.glob(f"**/selected_idx_{safe_selector}.npy")))
+        candidates.extend(sorted(DEFAULT_OUTPUT_DIR.glob(f"**/selected_idx_{safe_selector}.npy")))
+
+    # fallback rộng hơn: dò mọi selected_idx_*.npy
+    candidates.extend(sorted(results_dir.glob("selected_idx_*.npy")))
+    candidates.extend(sorted(base_results_dir.glob("selected_idx_*.npy")))
+    candidates.extend(sorted(DEFAULT_OUTPUT_DIR.glob("**/selected_idx_*.npy")))
+
+    unique = []
+    seen = set()
+    for p in candidates:
+        try:
+            rp = str(p.resolve())
+        except Exception:
+            rp = str(p)
+        if rp not in seen and p.exists():
+            seen.add(rp)
+            unique.append(p)
+    return unique
 
 
-def build_input_vector(arr: np.ndarray, selected_idx: np.ndarray | None = None):
+def resolve_selected_idx_bundle(model, model_path: str, metadata: dict, raw_feature_dim: int = 4761):
+    expected_dim = int(getattr(model, "n_features_in_", 0) or 0)
+    if expected_dim <= 0 or expected_dim == raw_feature_dim:
+        return None, None, expected_dim, []
+
+    searched_paths = []
+    for p in find_candidate_selected_idx_paths(model_path=model_path, metadata=metadata):
+        searched_paths.append(str(p))
+        try:
+            arr = np.load(p)
+            arr = np.asarray(arr).reshape(-1)
+            if arr.ndim == 1 and len(arr) == expected_dim:
+                return p, arr.astype(int), expected_dim, searched_paths
+        except Exception:
+            continue
+
+    return None, None, expected_dim, searched_paths
+
+
+def build_input_vector(
+    arr: np.ndarray,
+    selected_idx: np.ndarray | None = None,
+    expected_dim: int | None = None,
+    searched_paths: list[str] | None = None,
+):
     X_input = arr.astype(np.float32).reshape(1, -1)
     original_dim = X_input.shape[1]
     if selected_idx is not None:
         X_input = X_input[:, selected_idx]
-    return X_input, original_dim, X_input.shape[1]
+
+    used_dim = X_input.shape[1]
+    if expected_dim and used_dim != expected_dim:
+        searched_msg = "\n".join(searched_paths or []) if searched_paths else "(không có candidate path nào)"
+        raise ValueError(
+            f"Model đang cần {expected_dim} features nhưng app hiện tạo {used_dim} features. "
+            f"Không tìm thấy file selected_idx phù hợp để rút gọn feature.\n\n"
+            f"Selector name: {selected_idx is not None}\n"
+            f"Candidate paths đã dò:\n{searched_msg}"
+        )
+    return X_input, original_dim, used_dim
 
 
 def run_single_prediction(model, text: str, qr_source: str, model_path: str, selected_idx: np.ndarray | None, metadata: dict):
@@ -583,7 +645,7 @@ def run_single_prediction(model, text: str, qr_source: str, model_path: str, sel
     qr_generation_s = t1 - t0
 
     t0 = time.perf_counter()
-    X_input, original_dim, used_dim = build_input_vector(arr=arr, selected_idx=selected_idx)
+    X_input, original_dim, used_dim = build_input_vector(arr=arr, selected_idx=selected_idx, expected_dim=int(getattr(model, "n_features_in_", 0) or 0), searched_paths=metadata.get("_selected_idx_searched_paths"))
     t1 = time.perf_counter()
     preprocess_s = t1 - t0
 
@@ -671,7 +733,7 @@ def run_benchmark(model, text: str, qr_source: str, model_path: str, selected_id
         gen_ms.append((t1 - t0) * 1000.0)
 
         t0 = time.perf_counter()
-        X_input, _, _ = build_input_vector(arr=arr, selected_idx=selected_idx)
+        X_input, _, _ = build_input_vector(arr=arr, selected_idx=selected_idx, expected_dim=int(getattr(model, "n_features_in_", 0) or 0), searched_paths=metadata.get("_selected_idx_searched_paths"))
         t1 = time.perf_counter()
         prep_ms.append((t1 - t0) * 1000.0)
 
@@ -757,6 +819,10 @@ def render_registry_card(metadata: dict, model_path: str, selected_idx_path: Pat
                     <div class="info-label">Top-k</div>
                     <div class="info-value">{metadata.get("top_k", "-")}</div>
                 </div>
+                <div class="info-tile">
+                    <div class="info-label">Expected dim</div>
+                    <div class="info-value">{metadata.get("_expected_dim", "-")}</div>
+                </div>
                 <div class="info-tile" style="grid-column: span 2;">
                     <div class="info-label">Model path</div>
                     <div class="info-value">{model_path}</div>
@@ -822,8 +888,14 @@ load_elapsed_s = time.perf_counter() - load_t0
 
 model = bundle["model"]
 metadata = bundle.get("metadata", {}) or {}
-selected_idx_path = resolve_selected_idx_path(model_path=model_path, metadata=metadata)
-selected_idx = load_selected_idx(str(selected_idx_path)) if selected_idx_path is not None else None
+selected_idx_path, selected_idx, expected_dim, searched_paths = resolve_selected_idx_bundle(
+    model=model,
+    model_path=model_path,
+    metadata=metadata,
+    raw_feature_dim=TARGET_SHAPE[0] * TARGET_SHAPE[1],
+)
+metadata["_selected_idx_searched_paths"] = searched_paths
+metadata["_expected_dim"] = expected_dim
 
 log_perf(
     "load_model",
@@ -835,6 +907,7 @@ log_perf(
         "selector_name": metadata.get("selector_name"),
         "top_k": metadata.get("top_k"),
         "selected_idx_path": str(selected_idx_path) if selected_idx_path else None,
+        "selected_idx_found": selected_idx is not None,
     },
 )
 
@@ -845,6 +918,9 @@ render_registry_card(
     use_cache=use_cache,
     load_elapsed_s=load_elapsed_s,
 )
+
+if int(getattr(model, "n_features_in_", 0) or 0) not in (0, TARGET_SHAPE[0] * TARGET_SHAPE[1]) and selected_idx is None:
+    st.warning("Model này cần feature đã rút gọn nhưng app chưa tìm thấy selected_idx phù hợp. Hãy kiểm tra thư mục results hoặc dùng bản app đã sửa mới nhất.")
 
 top_left, top_right = st.columns([1.1, 1], gap="large")
 
