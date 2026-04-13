@@ -183,7 +183,7 @@ def try_read_csv(path: Path):
 def resolve_results_dir_from_model_path(model_path: str) -> Path:
     p = Path(model_path).resolve()
     for parent in [p] + list(p.parents):
-        if parent.name == "models":
+        if parent.name == "models_new":
             return parent.parent / "results"
     # fallback
     return DEFAULT_OUTPUT_DIR / "results"
@@ -354,10 +354,10 @@ st.set_page_config(page_title="QR Quishing Demo - Paper 10 Fold", layout="wide")
 st.title("QR Quishing Demo - Paper 10 Fold")
 st.caption("App đã sửa để khớp notebook train mới: output dir mới, QR chuẩn paper, và hỗ trợ model feature selection.")
 
-model_files = sorted(DEFAULT_OUTPUT_DIR.glob("models/**/*.joblib"))
+model_files = sorted(DEFAULT_OUTPUT_DIR.glob("models_new/**/*.joblib"))
 if not model_files:
     st.warning(
-        f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models'}.\n"
+        f"Chưa tìm thấy model .joblib trong {DEFAULT_OUTPUT_DIR / 'models_new'}.\n"
         "Hãy chạy notebook train mới trước."
     )
     st.stop()
